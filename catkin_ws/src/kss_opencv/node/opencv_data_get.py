@@ -7,6 +7,11 @@ import cv2
 from cv_bridge import CvBridge, CvBridgeError
 from sensor_msgs.msg import Image
 
+
+#color set
+red_color = (0,0,255)
+
+
 class darknet:
     def __init__(self):
         rospy.init_node('detect_tracking', anonymous=True)
@@ -22,12 +27,14 @@ class darknet:
         self.y_min = []
         self.x_max = []
         self.y_max = []
+
         for i in range(0,len(data.bounding_boxes),1):
             if data.bounding_boxes[i].Class == 'person':
                 self.x_min.append(data.bounding_boxes[i].xmin)
                 self.y_min.append(data.bounding_boxes[i].ymin)
                 self.x_max.append(data.bounding_boxes[i].xmax)
                 self.y_max.append(data.bounding_boxes[i].ymax)
+
 
 
 
@@ -52,14 +59,24 @@ class darknet:
             print(self.x_max[i])
             print(self.y_max[i])
 
-            mid_x = (self.x_min[i] + self.x_max[i])/2
+            mid_x = (self.x_min[i] + self.x_max[i])/2 - 40
             mid_y = (self.y_min[i] + self.y_max[i])/2
-            cv2.putText(cv_image,'person', (int(mid_x), int(mid_y)), cv2.FONT_HERSHEY_SIMPLEX,0.5,(255, 255, 255),2)
 
-        cv2.imshow('window', cv2.resize(cv_image, (800, 450)))
-        if cv2.waitKey(25) & 0xFF == ord('q'):
-            cv2.destroyAllWindows()
-            return 0
+
+
+            print("mid values")
+            print(mid_x)
+            print(mid_y)
+
+            cv2.putText(cv_image,'person', (int(mid_x), int(mid_y)), cv2.FONT_HERSHEY_SIMPLEX,0.7,(255, 255, 255),2)
+            cv_image = cv2.rectangle(cv_image,(self.x_min[i],self.y_min[i]),(self.x_max[i],self.y_max[i]),red_color,2)
+
+            cv2.imshow('window', cv2.resize(cv_image, (800, 450)))
+            if cv2.waitKey(25) & 0xFF == ord('q'):
+                cv2.destroyAllWindows()
+                exit()
+
+
 
     def sub_opencv_img(self):
         self._sub = rospy.Subscriber('raspicam_node/image_raw', Image, self.callback_opencv, queue_size=1)
@@ -69,12 +86,13 @@ if __name__ == '__main__':
     try:
         x = darknet()
         x.sub_bounding_box()
+        rospy.sleep(0.0001)
         x.sub_opencv_img()
         rospy.spin()
 
     except KeyboardInterrupt :
-        print ("main program exit")
+        print("main program exit")
 
     except rospy.ROSInterruptException as e:
-        print ("ROS program exit")
+        print("ROS program exit")
 
