@@ -39,10 +39,10 @@ class darknet:
         if self.selecting_sub_image == "compressed":
             # converting compressed image to opencv image
             np_arr = np.fromstring(image_msg.data, np.uint8)
-            cv_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+            cv_image = cv2.imdecode(np_arr, cv2.COLOR_BGR2RGB)
         elif self.selecting_sub_image == "raw":
             cv_image = self.bridge.imgmsg_to_cv2(image_msg, "bgr8")
-        #print(type(self.x_min))
+
 
 
         for i in range(0,len(self.x_min),1):
@@ -52,7 +52,14 @@ class darknet:
             print(self.x_max[i])
             print(self.y_max[i])
 
-        cv2.imshow('cv_img', cv_image), cv2.waitKey(1)
+            mid_x = (self.x_min[i] + self.x_max[i])/2
+            mid_y = (self.y_min[i] + self.y_max[i])/2
+            cv2.putText(cv_image,'person', (int(mid_x), int(mid_y)), cv2.FONT_HERSHEY_SIMPLEX,0.5,(255, 255, 255),2)
+
+        cv2.imshow('window', cv2.resize(cv_image, (800, 450)))
+        if cv2.waitKey(25) & 0xFF == ord('q'):
+            cv2.destroyAllWindows()
+            return 0
 
     def sub_opencv_img(self):
         self._sub = rospy.Subscriber('raspicam_node/image_raw', Image, self.callback_opencv, queue_size=1)
