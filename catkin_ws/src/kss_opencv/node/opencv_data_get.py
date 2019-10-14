@@ -18,13 +18,18 @@ class darknet:
 
 
     def callback_darknet(self,data):
-        num = 0
+        self.x_min = []
+        self.y_min = []
+        self.x_max = []
+        self.y_max = []
         for i in range(0,len(data.bounding_boxes),1):
             if data.bounding_boxes[i].Class == 'person':
-                self.x_min = data.bounding_boxes[i].xmin
-                self.y_min = data.bounding_boxes[i].ymin
-                self.x_max = data.bounding_boxes[i].xmax
-                self.y_max = data.bounding_boxes[i].ymax
+                self.x_min.append(data.bounding_boxes[i].xmin)
+                self.y_min.append(data.bounding_boxes[i].ymin)
+                self.x_max.append(data.bounding_boxes[i].xmax)
+                self.y_max.append(data.bounding_boxes[i].ymax)
+
+
 
     def sub_bounding_box(self):
         self.sub = rospy.Subscriber('/darknet_ros/bounding_boxes', BoundingBoxes, self.callback_darknet)
@@ -37,13 +42,15 @@ class darknet:
             cv_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
         elif self.selecting_sub_image == "raw":
             cv_image = self.bridge.imgmsg_to_cv2(image_msg, "bgr8")
+        #print(type(self.x_min))
 
-        for i in range(0,len(self.xmin),1):
-            print("only person")
-            print(self.xmin[i])
-            print(self.ymin[i])
-            print(self.xmax[i])
-            print(self.ymax[i])
+
+        for i in range(0,len(self.x_min),1):
+            print("only person {}".format(i))
+            print(self.x_min[i])
+            print(self.y_min[i])
+            print(self.x_max[i])
+            print(self.y_max[i])
 
         cv2.imshow('cv_img', cv_image), cv2.waitKey(1)
 
