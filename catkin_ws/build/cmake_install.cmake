@@ -126,7 +126,8 @@ endif()
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
   include("/home/ksshin/catkin_ws/build/gtest/cmake_install.cmake")
-  include("/home/ksshin/catkin_ws/build/kss_opencv/cmake_install.cmake")
+  include("/home/ksshin/catkin_ws/build/opencv/cmake_install.cmake")
+  include("/home/ksshin/catkin_ws/build/move_turtlebot/cmake_install.cmake")
 
 endif()
 

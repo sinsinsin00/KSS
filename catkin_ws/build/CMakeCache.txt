@@ -715,13 +715,13 @@ gtest_main_LIB_DEPENDS:STATIC=general;-lpthread;general;gtest;
 image_transport_DIR:PATH=/opt/ros/kinetic/share/image_transport/cmake
 
 //Value Computed by CMake
-kss_opencv_BINARY_DIR:STATIC=/home/ksshin/catkin_ws/build/kss_opencv
+kss_opencv_BINARY_DIR:STATIC=/home/ksshin/catkin_ws/build/opencv
 
 //Value Computed by CMake
-kss_opencv_SOURCE_DIR:STATIC=/home/ksshin/catkin_ws/src/kss_opencv
+kss_opencv_SOURCE_DIR:STATIC=/home/ksshin/catkin_ws/src/opencv
 
 //Path to a library.
-lib:FILEPATH=/opt/ros/kinetic/lib/librospack.so
+lib:FILEPATH=/opt/ros/kinetic/lib/librostime.so
 
 //The directory containing a CMake configuration file for message_filters.
 message_filters_DIR:PATH=/opt/ros/kinetic/share/message_filters/cmake
@@ -770,6 +770,12 @@ sensor_msgs_DIR:PATH=/opt/ros/kinetic/share/sensor_msgs/cmake
 
 //The directory containing a CMake configuration file for std_msgs.
 std_msgs_DIR:PATH=/opt/ros/kinetic/share/std_msgs/cmake
+
+//Value Computed by CMake
+turtlesim_cleaner_BINARY_DIR:STATIC=/home/ksshin/catkin_ws/build/move_turtlebot
+
+//Value Computed by CMake
+turtlesim_cleaner_SOURCE_DIR:STATIC=/home/ksshin/catkin_ws/src/move_turtlebot
 
 //The directory containing a CMake configuration file for xmlrpcpp.
 xmlrpcpp_DIR:PATH=/opt/ros/kinetic/share/xmlrpcpp/cmake
@@ -914,7 +920,7 @@ CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_NM
 CMAKE_NM-ADVANCED:INTERNAL=1
 //number of local generators
-CMAKE_NUMBER_OF_MAKEFILES:INTERNAL=4
+CMAKE_NUMBER_OF_MAKEFILES:INTERNAL=5
 //ADVANCED property for variable: CMAKE_OBJCOPY
 CMAKE_OBJCOPY-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_OBJDUMP
