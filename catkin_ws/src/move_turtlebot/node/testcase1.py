@@ -38,7 +38,7 @@ class TurtleBot:
 
         self.sub = rospy.Subscriber('/odom', Odometry, self.check_msgs_callbf)
         self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
-        '''
+
         end_point_x = data.pose.pose.position.x + self.goal_pose.x
         end_point_y = data.pose.pose.position.y + self.goal_pose.y
 
@@ -68,7 +68,7 @@ class TurtleBot:
                 break
         rospy.sleep(1)
         rospy.spin()
-        '''
+
 
 if __name__ == '__main__':
     try:

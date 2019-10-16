@@ -12,7 +12,7 @@ if(NOT DEFINED CMAKE_INSTALL_CONFIG_NAME)
     string(REGEX REPLACE "^[^A-Za-z0-9_]+" ""
            CMAKE_INSTALL_CONFIG_NAME "${BUILD_TYPE}")
   else()
-    set(CMAKE_INSTALL_CONFIG_NAME "Release")
+    set(CMAKE_INSTALL_CONFIG_NAME "")
   endif()
   message(STATUS "Install configuration: \"${CMAKE_INSTALL_CONFIG_NAME}\"")
 endif()
@@ -126,8 +126,13 @@ endif()
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
   include("/home/ksshin/catkin_ws/build/gtest/cmake_install.cmake")
+  include("/home/ksshin/catkin_ws/build/bebop_autonomy/bebop_autonomy/cmake_install.cmake")
+  include("/home/ksshin/catkin_ws/build/bebop_autonomy/bebop_msgs/cmake_install.cmake")
+  include("/home/ksshin/catkin_ws/build/bebop_autonomy/bebop_tools/cmake_install.cmake")
   include("/home/ksshin/catkin_ws/build/move_turtlebot/cmake_install.cmake")
+  include("/home/ksshin/catkin_ws/build/bebop_autonomy/bebop_description/cmake_install.cmake")
   include("/home/ksshin/catkin_ws/build/opencv/cmake_install.cmake")
+  include("/home/ksshin/catkin_ws/build/bebop_autonomy/bebop_driver/cmake_install.cmake")
 
 endif()
 

@@ -3,14 +3,18 @@
 import cv2
 import rospy
 import numpy as np
+import sys, select, os
+import tty, termios
 
+from std_msgs.msg import Int8
 from turtlesim.msg import Pose
 from sensor_msgs.msg import Image
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
 from cv_bridge import CvBridge, CvBridgeError
 from darknet_ros_msgs.msg import BoundingBoxes
-from darknet_ros_msgs.msg import found_object
+
+
 #color set
 blue_color = (255,0,0)
 green_color = (0,255,0)
@@ -19,14 +23,30 @@ white_color = (255,255,255)
 black_color = (0,0,0)
 
 
+
+def getKey():
+    if os.name == 'nt':
+      return msvcrt.getch()
+
+    tty.setraw(sys.stdin.fileno())
+    rlist, _, _ = select.select([sys.stdin], [], [], 0.1)
+    if rlist:
+        key = sys.stdin.read(1)
+    else:
+        key = ''
+
+    termios.tcsetattr(sys.stdin, termios.TCSADRAIN, settings)
+    return key
+
 class darknet:
     def __init__(self):
         rospy.init_node('detect_tracking', anonymous=True)
         self.selecting_sub_image = "raw"  # you can choose image type "compressed", "raw"
         self.bridge = CvBridge()
-
-        self.rate = rospy.Rate(10)
+        self.msg = Twist()
+        self.rate = rospy.Rate(5)
         self.box = BoundingBoxes()
+        self.control_flag = 0
 
 
     def callback_darknet(self,data):
@@ -60,8 +80,20 @@ class darknet:
         # circle center
         self.circle_x_center = width / 2
         self.circle_y_center = height / 2
-        print(len(self.x_min))
-        if len(self.x_min) != 0:
+
+        # turtlebot control flag
+        key = getKey()
+        if key == 'q':
+            self.msg.angular.z = self.msg.angular.x = self.msg.angular.y = 0
+            self.control_flag = 0
+
+        if key == 'f':
+            self.msg.angular.z = self.msg.angular.x = self.msg.angular.y = 0
+            self.control_flag = 1
+
+
+        found_object_max = self.found_object.data
+        if found_object_max != 0:
             for i in range(0,len(self.x_min),1):
                 try :
                     person_num = i
@@ -77,8 +109,8 @@ class darknet:
                     print(self.circle_y_center)
                     print(self.circle_x_center)
                     print(self.point_x_center)
-    
                     '''
+                    
 
                     self.mid_x = (self.x_min[0] + self.x_max[0]) / 2
                     self.mid_y = (self.y_min[0] + self.y_max[0]) / 2
@@ -93,43 +125,71 @@ class darknet:
                     cv_image = cv2.rectangle(cv_image,(self.x_min[0],self.y_min[0]),(self.x_max[0],self.y_max[0]),red_color,2)
 
 
+                    #control detect object following
                     if person_num == 0:
-                        if self.point_x_center == self.mid_x:
-                            print("mid_X : ", self.mid_x, "dis_x_center : ", self.point_x_center)
+                        detect_object_mid = self.mid_x - self.point_x_center
+                        tresh_linear_max = 50
+                        tresh_linear_min = -50
+                        angular_speed = 0.05
 
-                    if cv2.waitKey(25) & 0xFF == ord('q'):
-                        cv2.destroyAllWindows()
-                        break
+                        print("detect_object_mid : ",detect_object_mid)
+                        print("control_flag : ",self.control_flag)
+
+                        if self.control_flag == 1:
+                            if detect_object_mid < tresh_linear_max and detect_object_mid > tresh_linear_min:
+                                self.msg.angular.z = self.msg.angular.x = self.msg.angular.y = 0
+                            elif detect_object_mid > tresh_linear_max:
+                                self.msg.angular.z = -angular_speed
+                                self.msg.angular.x = self.msg.angular.y = 0
+                            elif detect_object_mid < tresh_linear_min:
+                                self.msg.angular.z = angular_speed
+                                self.msg.angular.x = self.msg.angular.y = 0
+
+                        self.pub.publish(self.msg)
+                        self.rate.sleep()
+
 
                 except IndexError as e :
                     print(e)
-
         # show display
-        cv2.imshow('window', cv2.resize(cv_image, (800, 450)))
+        cv2.imshow("opencv", cv_image)
+        # cv2.imshow('opencv', cv2.resize(cv_image, (800, 450)))
+        cv2.waitKey(3)
 
-    def callback_found_object(self,found_object_data):
-        print(found_object_data)
-
+    def callback_found_object(self,data):
+        self.found_object = data
 
     def sub_bounding_box(self):
         self.sub = rospy.Subscriber('/darknet_ros/bounding_boxes', BoundingBoxes, self.callback_darknet)
 
     def sub_opencv_img(self):
-        self.sub = rospy.Subscriber('/image_raw', Image, self.callback_opencv, queue_size=1)
+        self.sub = rospy.Subscriber('/raspicam_node/image_raw', Image, self.callback_opencv)
 
     def sub_found_object(self):
-        self.sub = rospy.Subscriber('/found_object', found_object, self.callback_found_object, queue_size=1)
+        self.sub = rospy.Subscriber('/darknet_ros/found_object', Int8, self.callback_found_object)
 
+    def pub_control_turtlebot(self):
+        self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
 
 if __name__ == '__main__':
+    settings = termios.tcgetattr(sys.stdin)
+
     try:
         x = darknet()
+        x.sub_found_object()
         x.sub_opencv_img()
         x.sub_bounding_box()
-        rospy.spin()
+        x.pub_control_turtlebot()
+        try:
+            rospy.spin()
+        except KeyboardInterrupt:
+            print("Shutting Down")
+        cv2.destroyAllWindows()
+
 
     except KeyboardInterrupt :
         print("main program exit")
+
 
     except rospy.ROSInterruptException as e:
         print("ROS program exit")

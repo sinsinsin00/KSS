@@ -1,8 +1,0 @@
-prefix=/home/ksshin/catkin_ws/install
-
-Name: kss_opencv
-Description: Description of kss_opencv
-Version: 0.0.0
-Cflags: 
-Libs: -L/home/ksshin/catkin_ws/install/lib 
-Requires: 
