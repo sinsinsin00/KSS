@@ -33,17 +33,17 @@ if(NOT DEFINED CMAKE_INSTALL_SO_NO_EXE)
 endif()
 
 if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/pkgconfig" TYPE FILE FILES "/home/ksshin/catkin_ws/build/move_turtlebot/catkin_generated/installspace/turtlesim_cleaner.pc")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/pkgconfig" TYPE FILE FILES "/home/ksshin/catkin_ws/build/move_turtlebot/catkin_generated/installspace/move_turtlebot.pc")
 endif()
 
 if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/turtlesim_cleaner/cmake" TYPE FILE FILES
-    "/home/ksshin/catkin_ws/build/move_turtlebot/catkin_generated/installspace/turtlesim_cleanerConfig.cmake"
-    "/home/ksshin/catkin_ws/build/move_turtlebot/catkin_generated/installspace/turtlesim_cleanerConfig-version.cmake"
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/move_turtlebot/cmake" TYPE FILE FILES
+    "/home/ksshin/catkin_ws/build/move_turtlebot/catkin_generated/installspace/move_turtlebotConfig.cmake"
+    "/home/ksshin/catkin_ws/build/move_turtlebot/catkin_generated/installspace/move_turtlebotConfig-version.cmake"
     )
 endif()
 
 if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/turtlesim_cleaner" TYPE FILE FILES "/home/ksshin/catkin_ws/src/move_turtlebot/package.xml")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/move_turtlebot" TYPE FILE FILES "/home/ksshin/catkin_ws/src/move_turtlebot/package.xml")
 endif()
 

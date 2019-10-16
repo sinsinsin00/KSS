@@ -33,17 +33,17 @@ if(NOT DEFINED CMAKE_INSTALL_SO_NO_EXE)
 endif()
 
 if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/pkgconfig" TYPE FILE FILES "/home/ksshin/catkin_ws/build/opencv/catkin_generated/installspace/kss_opencv.pc")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/pkgconfig" TYPE FILE FILES "/home/ksshin/catkin_ws/build/opencv/catkin_generated/installspace/opencv.pc")
 endif()
 
 if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/kss_opencv/cmake" TYPE FILE FILES
-    "/home/ksshin/catkin_ws/build/opencv/catkin_generated/installspace/kss_opencvConfig.cmake"
-    "/home/ksshin/catkin_ws/build/opencv/catkin_generated/installspace/kss_opencvConfig-version.cmake"
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/opencv/cmake" TYPE FILE FILES
+    "/home/ksshin/catkin_ws/build/opencv/catkin_generated/installspace/opencvConfig.cmake"
+    "/home/ksshin/catkin_ws/build/opencv/catkin_generated/installspace/opencvConfig-version.cmake"
     )
 endif()
 
 if(NOT CMAKE_INSTALL_COMPONENT OR "${CMAKE_INSTALL_COMPONENT}" STREQUAL "Unspecified")
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/kss_opencv" TYPE FILE FILES "/home/ksshin/catkin_ws/src/opencv/package.xml")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/opencv" TYPE FILE FILES "/home/ksshin/catkin_ws/src/opencv/package.xml")
 endif()
 

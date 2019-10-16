@@ -1,0 +1,8 @@
+prefix=/home/ksshin/catkin_ws/devel
+
+Name: opencv
+Description: Description of opencv
+Version: 0.0.0
+Cflags: 
+Libs: -L/home/ksshin/catkin_ws/devel/lib 
+Requires: 
