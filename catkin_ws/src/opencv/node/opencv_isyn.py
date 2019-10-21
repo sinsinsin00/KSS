@@ -7,7 +7,8 @@ import rospy
 import numpy as np
 import sys, select, os
 import tty, termios
-from matplotlib import pyplot as plt
+from PIL import Image
+import face_recognition
 
 
 from std_msgs.msg import Int8
@@ -103,10 +104,10 @@ class darknet:
                     #person detect number
                     person_num = i
 
-                    #person face detect
+                    '''#person face detect
                     faces = self.face_detector.detectMultiScale(cv_image, 1.3, 5)
                     plt.figure(figsize=(12, 8))
-                    plt.xticks([]), plt.yticks([])  # to hide tick values on X and Y axis
+                    plt.xticks([]), plt.yticks([])  # to hide tick values on X and Y axis'''
 
                     #set person detect bounding box middle
                     self.mid_x = (self.x_min[0] + self.x_max[0]) / 2
@@ -120,11 +121,11 @@ class darknet:
                     cv_image = cv2.line(cv_image, (self.point_x_center, self.point_y_center), (self.point_x_center, self.point_y_center), red_color, 5)
                     #draw rectangle
                     cv_image = cv2.rectangle(cv_image,(self.x_min[0],self.y_min[0]),(self.x_max[0],self.y_max[0]),red_color,2)
-                    #face detect
+                    '''#face detect
                     if len(faces) != 0:
                         for x, y, w, h in faces:
                             cv2.rectangle(cv_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                            print("detect_object_mid : ",faces)
+                            print("detect_object_mid : ",faces)'''
 
 
 
