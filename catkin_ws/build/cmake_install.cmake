@@ -132,6 +132,7 @@ if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   include("/home/ksshin/catkin_ws/build/move_turtlebot/cmake_install.cmake")
   include("/home/ksshin/catkin_ws/build/bebop_autonomy/bebop_description/cmake_install.cmake")
   include("/home/ksshin/catkin_ws/build/opencv/cmake_install.cmake")
+  include("/home/ksshin/catkin_ws/build/find_object_2d/cmake_install.cmake")
   include("/home/ksshin/catkin_ws/build/bebop_autonomy/bebop_driver/cmake_install.cmake")
 
 endif()

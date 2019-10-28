@@ -6,9 +6,7 @@ import cv2
 import rospy
 import numpy as np
 import sys, select, os
-import tty, termios
 import face_recognition
-
 
 from std_msgs.msg import Int8
 from turtlesim.msg import Pose
@@ -49,7 +47,6 @@ class darknet:
             if ext == '.jpg':
                 self.known_face_names.append(self.name)
                 pathname = os.path.join(dirname, filename)
-                print(pathname)
                 img = face_recognition.load_image_file(pathname)
                 face_encoding = face_recognition.face_encodings(img)[0]
                 self.known_face_encodings.append(face_encoding)
@@ -73,7 +70,6 @@ class darknet:
         self.circle_y_center = self.height / 2
 
 
-
     def callback_opencv(self, image_msg):
         if self.selecting_sub_image == "compressed":
             # converting compressed image to opencv image
@@ -82,8 +78,23 @@ class darknet:
         elif self.selecting_sub_image == "raw":
             cv_image = self.bridge.imgmsg_to_cv2(image_msg, "bgr8")
 
-        # set image height width
-        #height, width, channels = cv_image.shape
+
+        # get found object box
+        get_found_object = self.found_object_xy
+
+        self.x_min = []
+        self.y_min = []
+        self.x_max = []
+        self.y_max = []
+
+        for i in range(0,len(get_found_object.bounding_boxes),1):
+            self.x_min.append(get_found_object.bounding_boxes[i].xmin)
+            self.y_min.append(get_found_object.bounding_boxes[i].ymin)
+            self.x_max.append(get_found_object.bounding_boxes[i].xmax)
+            self.y_max.append(get_found_object.bounding_boxes[i].ymax)
+
+
+
         key = cv2.waitKey(1) & 0xFF
         # turtlebot control flag
 
@@ -144,7 +155,7 @@ class darknet:
                         self.process_this_frame = not self.process_this_frame
 
                         for (top, right, bottom, left), name in zip(self.face_locations, self.face_names):
-                            # Scale back up face locations since the frame we detected in was scaled to 1/4 size
+                            # Scale back up face locations since the frame we detected in was scaled to 1/2 size
                             top *= 2
                             right *= 2
                             bottom *= 2
@@ -159,7 +170,7 @@ class darknet:
 
 
                         #text detect image name
-                        cv2.putText(cv_image, 'person', (int(self.mid_x)- 40, int(self.mid_y)), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                        cv2.putText(cv_image, 'person', (int(self.mid_x)- 40, int(self.mid_y)), cv2.FONT_HERSHEY_DUPLEX, 0.7, (255, 255, 255), 2)
                         # draw rectangle
                         cv_image = cv2.rectangle(cv_image, (self.x_min[0], self.y_min[0]), (self.x_max[0], self.y_max[0]),red_color, 2)
                         #draw circle
@@ -170,8 +181,8 @@ class darknet:
                         #control detect object following
                         if self.control_flag == 1:
                             detect_object_mid = self.mid_x - self.point_x_center
-                            tresh_linear_max = 20
-                            tresh_linear_min = -20
+                            tresh_linear_max = 30
+                            tresh_linear_min = -30
                             angular_speed = 0.05
 
                             print("detect_object_mid    : ", detect_object_mid)
@@ -183,7 +194,7 @@ class darknet:
                                     files = os.listdir(dirname)
                                     file_num = len(files)
                                     cv_image_capture = cv_image
-                                    cv2.imwrite('/home/ksshin/image/img{}.jpg'.format(file_num),cv_image_capture,params=[cv2.IMWRITE_PNG_COMPRESSION,0])'''
+                                    cv2.imwrite('/home/ksshin/knowns/somebody{}.jpg'.format(file_num),cv_image_capture,params=[cv2.IMWRITE_PNG_COMPRESSION,0])'''
 
                             elif detect_object_mid > tresh_linear_max:
                                 self.msg.angular.z = -angular_speed
@@ -197,18 +208,9 @@ class darknet:
 
         # show display
         cv2.imshow("opencv", cv_image)
-        
-    def callback_darknet(self,found_object_xy):
-        self.x_min = []
-        self.y_min = []
-        self.x_max = []
-        self.y_max = []
 
-        for i in range(0,len(found_object_xy.bounding_boxes),1):
-            self.x_min.append(found_object_xy.bounding_boxes[i].xmin)
-            self.y_min.append(found_object_xy.bounding_boxes[i].ymin)
-            self.x_max.append(found_object_xy.bounding_boxes[i].xmax)
-            self.y_max.append(found_object_xy.bounding_boxes[i].ymax)
+    def callback_darknet(self,found_object_xy):
+        self.found_object_xy = found_object_xy
 
     def callback_found_object(self,found_object_num_data):
         self.found_object_num = found_object_num_data
@@ -225,22 +227,20 @@ class darknet:
     def pub_control_turtlebot(self):
         self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size = 1)
 
-if __name__ == '__main__':
-    settings = termios.tcgetattr(sys.stdin)
 
-    try:
-        x = darknet()
-        x.sub_opencv_img()
-        x.sub_found_object()
-        x.sub_bounding_box()
-        x.pub_control_turtlebot()
-        rospy.spin()
+try:
+    x = darknet()
+    x.sub_opencv_img()
+    x.sub_found_object()
+    x.sub_bounding_box()
+    x.pub_control_turtlebot()
+    rospy.spin()
 
 
-    except KeyboardInterrupt :
-        print("main program exit")
+except KeyboardInterrupt :
+    print("main program exit")
 
 
-    except rospy.ROSInterruptException as e:
-        print("ROS program exit")
+except rospy.ROSInterruptException as e:
+    print("ROS program exit")
 

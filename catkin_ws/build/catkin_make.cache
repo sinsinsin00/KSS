@@ -1,2 +1,2 @@
-bebop_autonomy/bebop_autonomy:bebop_autonomy/bebop_description:bebop_autonomy/bebop_driver:bebop_autonomy/bebop_msgs:bebop_autonomy/bebop_tools:move_turtlebot:opencv
+bebop_autonomy/bebop_autonomy:bebop_autonomy/bebop_description:bebop_autonomy/bebop_driver:bebop_autonomy/bebop_msgs:bebop_autonomy/bebop_tools:find_object_2d:move_turtlebot:opencv
 -DCATKIN_DEVEL_PREFIX=/home/ksshin/catkin_ws/devel -DCMAKE_INSTALL_PREFIX=/home/ksshin/catkin_ws/install -G Unix Makefiles
