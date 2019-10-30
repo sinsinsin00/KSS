@@ -8,30 +8,35 @@ import numpy as np
 import sys, select, os
 import face_recognition
 
-from std_msgs.msg import Int8
-from turtlesim.msg import Pose
+from std_msgs.msg import Int8, UInt8, Bool,Int32
 from sensor_msgs.msg import Image
-from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Twist
 from cv_bridge import CvBridge, CvBridgeError
 from darknet_ros_msgs.msg import BoundingBoxes
 
-
 # color set
-blue_color = (255,0,0)
+blue_color  = (255,0,0)
 green_color = (0,255,0)
-red_color = (0,0,255)
-white_color = (255,255,255)
+red_color   = (0,0,255)
 black_color = (0,0,0)
-
+white_color = (255,255,255)
 
 class darknet:
     def __init__(self):
         rospy.init_node('detect_tracking', anonymous=True)
+
+        self.opencv_img_sub = rospy.Subscriber('/bebop/image_raw', Image, self.callback_opencv)
+        self.found_object_sub = rospy.Subscriber('/darknet_ros/found_object', Int8, self.callback_found_object)
+        self.bounding_sub = rospy.Subscriber('/darknet_ros/bounding_boxes', BoundingBoxes, self.callback_darknet)
+        self.bebop_mode_sub = rospy.Subscriber('/bebop_mode', UInt8, self.callback_bebop_mode)
+
+        self.image_pub = rospy.Publisher("/send_to_image", Image, queue_size = 10)
+        self.found_person_pub = rospy.Publisher("/found_person", Bool, queue_size = 10)
+        self.person_to_drone_Alignment_pub = rospy.Subscriber('/person_to_drone_Alignment', Int32,
+                                                              self.callback_found_person)
+
         self.selecting_sub_image = "raw"  # you can choose image type "compressed", "raw"
         self.bridge = CvBridge()
-        self.msg = Twist()
-        self.rate = rospy.Rate(5)
+        self.rate = rospy.Rate(10)
         self.box = BoundingBoxes()
         self.control_flag = 0
         # mode
@@ -45,6 +50,7 @@ class darknet:
         for filename in files:
             self.name, ext = os.path.splitext(filename)
             if ext == '.jpg':
+                print(self.name)
                 self.known_face_names.append(self.name)
                 pathname = os.path.join(dirname, filename)
                 img = face_recognition.load_image_file(pathname)
@@ -57,17 +63,19 @@ class darknet:
         self.face_names = []
         self.process_this_frame = True
 
-        # point center
-        self.point_x_center = 320
-        self.point_y_center = 240
-
         # height,width
         self.height = 480
-        self.width = 640
+        self.width = 856
+
+        # point center
+        self.point_x_center = self.width / 2
+        self.point_y_center = self.height / 2
+
 
         # circle center
         self.circle_x_center = self.width / 2
         self.circle_y_center = self.height / 2
+
 
 
     def callback_opencv(self, image_msg):
@@ -77,45 +85,45 @@ class darknet:
             cv_image = cv2.imdecode(np_arr, cv2.COLOR_BGR2RGB)
         elif self.selecting_sub_image == "raw":
             cv_image = self.bridge.imgmsg_to_cv2(image_msg, "bgr8")
+            self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
 
-
-        # get found object box
-        get_found_object = self.found_object_xy
-
-        self.x_min = []
-        self.y_min = []
-        self.x_max = []
-        self.y_max = []
-
-        for i in range(0,len(get_found_object.bounding_boxes),1):
-            self.x_min.append(get_found_object.bounding_boxes[i].xmin)
-            self.y_min.append(get_found_object.bounding_boxes[i].ymin)
-            self.x_max.append(get_found_object.bounding_boxes[i].xmax)
-            self.y_max.append(get_found_object.bounding_boxes[i].ymax)
-
+        # draw center_point
+        cv_image = cv2.line(cv_image, (self.point_x_center, self.point_y_center),
+                            (self.point_x_center, self.point_y_center), red_color, 5)
 
 
         key = cv2.waitKey(1) & 0xFF
-        # turtlebot control flag
-
+        # control flag
         if key == ord("s"):
             self.start_object_detect = 1
         if key == ord("q"):
             self.start_object_detect = 0
 
         if self.start_object_detect == 1:
+            # get found object box
+            get_found_object = self.found_object_xy
+
+            self.x_min = []
+            self.y_min = []
+            self.x_max = []
+            self.y_max = []
+
+            for i in range(0, len(get_found_object.bounding_boxes), 1):
+                if get_found_object.bounding_boxes[i].probability >= 0.50:
+                    self.x_min.append(get_found_object.bounding_boxes[i].xmin)
+                    self.y_min.append(get_found_object.bounding_boxes[i].ymin)
+                    self.x_max.append(get_found_object.bounding_boxes[i].xmax)
+                    self.y_max.append(get_found_object.bounding_boxes[i].ymax)
+
+
             found_object_max = self.found_object_num.data
             if found_object_max != 0 :
                 for i in range(0,len(self.x_min),1):
-                        # print information
-                        # print("person detect number : ", i)
-                        print("control_flag         : ", self.control_flag)
-
                         # set person detect bounding box middle
                         self.mid_x = (self.x_min[0] + self.x_max[0]) / 2
                         self.mid_y = (self.y_min[0] + self.y_max[0]) / 2
 
-                        # turtle control stop
+                        # open_face start and stop key flag
                         if key == ord("0"):
                             self.control_flag = 0
                             self.msg.angular.z = self.msg.angular.x = self.msg.angular.y = 0
@@ -126,121 +134,113 @@ class darknet:
                             self.msg.angular.z = self.msg.angular.x = self.msg.angular.y = 0
                             self.pub.publish(self.msg)
 
-                        # Resize frame of video to 1/4 size for faster face recognition processing
-                        small_frame = cv2.resize(cv_image, (0, 0), fx=0.5, fy=0.5)
-                        # Convert the image from BGR color (which OpenCV uses) to RGB color (which face_recognition uses)
-                        rgb_small_frame = small_frame[:, :, ::-1]
-
-                        # Only process every other frame of video to save time
-                        if self.process_this_frame:
-                            # Find all the faces and face encodings in the current frame of video
-                            self.face_locations = face_recognition.face_locations(rgb_small_frame)
-                            self.face_encodings = face_recognition.face_encodings(rgb_small_frame, self.face_locations)
-
-                            self.face_names = []
-                            for face_encoding in self.face_encodings:
-                                # See if the face is a match for the known face(s)
-                                distances = face_recognition.face_distance(self.known_face_encodings, face_encoding)
-                                min_value = min(distances)
-
-                                # tolerance: How much distance between faces to consider it a match. Lower is more strict.
-                                # 0.6 is typical best performance.
-                                self.name = "Unknown"
-                                if min_value < 0.6:
-                                    index = np.argmin(distances)
-                                    self.name = self.known_face_names[index]
-
-                                self.face_names.append(self.name)
-
-                        self.process_this_frame = not self.process_this_frame
-
-                        for (top, right, bottom, left), name in zip(self.face_locations, self.face_names):
-                            # Scale back up face locations since the frame we detected in was scaled to 1/2 size
-                            top *= 2
-                            right *= 2
-                            bottom *= 2
-                            left *= 2
-
-                            # Draw a box around the face
-                            cv2.rectangle(cv_image, (left, top), (right, bottom), (0, 0, 255), 1)
-                            # Draw a label with a name below the face
-                            cv2.rectangle(cv_image, (left, bottom - 15), (right, bottom), (0, 0, 255), cv2.FILLED)
-                            font = cv2.FONT_HERSHEY_DUPLEX
-                            cv2.putText(cv_image, name, (left + 6, bottom - 6), font, 0.5, (255, 255, 255), 1)
-
-
                         #text detect image name
-                        cv2.putText(cv_image, 'person', (int(self.mid_x)- 40, int(self.mid_y)), cv2.FONT_HERSHEY_DUPLEX, 0.7, (255, 255, 255), 2)
+                        cv2.putText(cv_image, 'person', (int(self.mid_x)- 40, int(self.mid_y)), cv2.FONT_HERSHEY_DUPLEX, 0.7, (255, 255, 255), 1)
                         # draw rectangle
-                        cv_image = cv2.rectangle(cv_image, (self.x_min[0], self.y_min[0]), (self.x_max[0], self.y_max[0]),red_color, 2)
-                        #draw circle
-                        cv_image = cv2.circle(cv_image,(self.circle_x_center,self.circle_y_center),10,white_color,1)
-                        #draw point
-                        cv_image = cv2.line(cv_image, (self.point_x_center, self.point_y_center), (self.point_x_center, self.point_y_center), red_color, 5)
+                        cv_image = cv2.rectangle(cv_image, (self.x_min[0], self.y_min[0]), (self.x_max[0], self.y_max[0]),red_color, 1)
 
-                        #control detect object following
+
+                        #start open_face
                         if self.control_flag == 1:
+
+                            # Resize frame of video to 1/4 size for faster face recognition processing
+                            small_frame = cv2.resize(cv_image, (0, 0), fx=0.5, fy=0.5)
+                            # Convert the image from BGR color (which OpenCV uses) to RGB color (which face_recognition uses)
+                            rgb_small_frame = small_frame[:, :, ::-1]
+
+                            # Only process every other frame of video to save time
+                            if self.process_this_frame:
+                                # Find all the faces and face encodings in the current frame of video
+                                self.face_locations = face_recognition.face_locations(rgb_small_frame)
+                                self.face_encodings = face_recognition.face_encodings(rgb_small_frame,
+                                                                                      self.face_locations)
+
+                                self.face_names = []
+                                for face_encoding in self.face_encodings:
+                                    # See if the face is a match for the known face(s)
+                                    distances = face_recognition.face_distance(self.known_face_encodings, face_encoding)
+                                    min_value = min(distances)
+
+                                    # tolerance: How much distance between faces to consider it a match. Lower is more strict.
+                                    # 0.6 is typical best performance.
+                                    self.name = "Unknown"
+                                    if min_value < 0.6:
+                                        index = np.argmin(distances)
+                                        self.name = self.known_face_names[index]
+
+                                    self.face_names.append(self.name)
+
+                            self.process_this_frame = not self.process_this_frame
+
+                            for (top, right, bottom, left), name in zip(self.face_locations, self.face_names):
+                                # Scale back up face locations since the frame we detected in was scaled to 1/2 size
+                                top *= 2
+                                right *= 2
+                                bottom *= 2
+                                left *= 2
+
+                                # Draw a box around the face
+                                cv2.rectangle(cv_image, (left, top), (right, bottom), (0, 0, 255), 1)
+                                # Draw a label with a name below the face
+                                cv2.rectangle(cv_image, (left, bottom - 15), (right, bottom), (0, 0, 255), cv2.FILLED)
+                                font = cv2.FONT_HERSHEY_DUPLEX
+                                cv2.putText(cv_image, name, (left + 6, bottom - 6), font, 0.5, (255, 255, 255), 1)
+
                             detect_object_mid = self.mid_x - self.point_x_center
-                            tresh_linear_max = 30
-                            tresh_linear_min = -30
+                            thresh_linear_max = 30
+                            thresh_linear_min = -30
                             angular_speed = 0.05
 
                             print("detect_object_mid    : ", detect_object_mid)
 
-                            if detect_object_mid < tresh_linear_max and detect_object_mid > tresh_linear_min:
+                            if detect_object_mid < thresh_linear_max and detect_object_mid > thresh_linear_min:
                                 self.msg.angular.z = self.msg.angular.x = self.msg.angular.y = 0
-                                '''if self.name == "Unknown":
+                                if self.name == "Unknown":
                                     dirname = '/home/ksshin/knowns/'
                                     files = os.listdir(dirname)
                                     file_num = len(files)
                                     cv_image_capture = cv_image
-                                    cv2.imwrite('/home/ksshin/knowns/somebody{}.jpg'.format(file_num),cv_image_capture,params=[cv2.IMWRITE_PNG_COMPRESSION,0])'''
+                                    cv2.imwrite('/home/ksshin/knowns/somebody{}.jpg'.format(file_num),cv_image_capture,params=[cv2.IMWRITE_PNG_COMPRESSION,0])
+                                    for filename in files:
+                                        self.name, ext = os.path.splitext(filename)
+                                        if ext == '.jpg':
+                                            self.known_face_names.append(self.name)
+                                            pathname = os.path.join(dirname, filename)
+                                            img = face_recognition.load_image_file(pathname)
+                                            face_encoding = face_recognition.face_encodings(img)[0]
+                                            self.known_face_encodings.append(face_encoding)
 
-                            elif detect_object_mid > tresh_linear_max:
+                            elif detect_object_mid > thresh_linear_max:
                                 self.msg.angular.z = -angular_speed
                                 self.msg.angular.x = self.msg.angular.y = 0
-                            elif detect_object_mid < tresh_linear_min:
+
+                            elif detect_object_mid < thresh_linear_min:
                                 self.msg.angular.z = angular_speed
                                 self.msg.angular.x = self.msg.angular.y = 0
                             self.pub.publish(self.msg)
 
 
-
         # show display
-        cv2.imshow("opencv", cv_image)
+        cv2.imshow("opencv",cv_image)
 
-    def callback_darknet(self,found_object_xy):
-        self.found_object_xy = found_object_xy
+    def callback_darknet(self,found_object_xy_data):
+        self.found_object_xy = found_object_xy_data
 
     def callback_found_object(self,found_object_num_data):
         self.found_object_num = found_object_num_data
 
-    def sub_bounding_box(self):
-        self.sub = rospy.Subscriber('/darknet_ros/bounding_boxes', BoundingBoxes, self.callback_darknet,queue_size = 10)
-
-    def sub_opencv_img(self):
-        self.sub = rospy.Subscriber('/raspicam_node/image_raw', Image, self.callback_opencv, queue_size = 10)
-
-    def sub_found_object(self):
-        self.sub = rospy.Subscriber('/darknet_ros/found_object', Int8, self.callback_found_object,queue_size = 10)
-
-    def pub_control_turtlebot(self):
-        self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size = 1)
+    def callback_bebop_mode(self,bebop_mode_data):
+        self.bebop_mode_num = bebop_mode_data
 
 
-try:
-    x = darknet()
-    x.sub_opencv_img()
-    x.sub_found_object()
-    x.sub_bounding_box()
-    x.pub_control_turtlebot()
-    rospy.spin()
+if __name__ == "__main__":
+    try:
+        x = darknet()
+        rospy.spin()
 
+    except KeyboardInterrupt :
+        print("main program exit")
 
-except KeyboardInterrupt :
-    print("main program exit")
-
-
-except rospy.ROSInterruptException as e:
-    print("ROS program exit")
+    except rospy.ROSInterruptException as e:
+        print("ROS program exit")
 
