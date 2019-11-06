@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-
 import cv2
 import rospy
 import numpy as np
@@ -9,6 +8,7 @@ import threading
 import sys, select, os, time
 import face_recognition
 
+from operator import itemgetter, attrgetter
 from std_msgs.msg import Int8, UInt8, Bool,Int32
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
@@ -27,7 +27,8 @@ class darknet:
         rospy.init_node('detect_tracking', anonymous=True)
 
         #bebop info
-        self.opencv_img_sub = rospy.Subscriber('/bebop/image_raw', Image, self.callback_opencv)
+        #self.opencv_img_sub = rospy.Subscriber('/bebop/image_raw', Image, self.callback_opencv)
+        self.opencv_img_sub = rospy.Subscriber('/image_raw', Image, self.callback_opencv)
 
         #communication with bebop
         self.bebop_mode_sub = rospy.Subscriber('/bebop_mode', UInt8, self.callback_bebop_mode)
@@ -102,6 +103,8 @@ class darknet:
     def callback_darknet(self,found_object_xy_data):
         self.found_object_xy = found_object_xy_data
 
+
+
     def callback_found_object(self,found_object_num_data):
         self.found_object = found_object_num_data.data
 
@@ -125,7 +128,7 @@ class darknet:
         if self.curr_bebop_status_msg == 3 and self.cv_image.any() and self.found_object >= 1:
             self.curr_isyn_status_msg = 3
 
-        if self.curr_bebop_status_msg == 5 and self.cv_image.any() and self.scshot_clear == 0:
+        if self.curr_bebop_status_msg == 5 and self.cv_image.any() and self.found_object >= 1 and self.scshot_clear == 0:
             self.curr_isyn_status_msg = 4
 
 
@@ -149,120 +152,125 @@ class darknet:
 
             if self.curr_isyn_status_msg == 3 or self.curr_isyn_status_msg == 4:
                 try:
+                    self.sort_found_object = []
+                    for i in range(0, len(self.found_object_xy.bounding_boxes), 1):
+                        self.sort_found_object.append(self.found_object_xy.bounding_boxes[i])
+
+                    for i in range(1, len(self.sort_found_object), 1):
+                        if self.sort_found_object[i].xmin > self.sort_found_object[i - 1].xmin:
+                            tmp = self.sort_found_object[i - 1]
+                            self.sort_found_object[i - 1] = self.sort_found_object[i]
+                            self.sort_found_object[i] = tmp
+
                     self.x_min = []
                     self.y_min = []
                     self.x_max = []
                     self.y_max = []
 
-                    for i in range(0, len(self.found_object_xy.bounding_boxes), 1):
-                        if self.found_object_xy.bounding_boxes[i].probability >= 0.50:
-                            self.x_min.append(self.found_object_xy.bounding_boxes[i].xmin)
-                            self.y_min.append(self.found_object_xy.bounding_boxes[i].ymin)
-                            self.x_max.append(self.found_object_xy.bounding_boxes[i].xmax)
-                            self.y_max.append(self.found_object_xy.bounding_boxes[i].ymax)
+                    for i in range(0, len(self.sort_found_object), 1):
+                        if self.self.sort_found_object[i].probability >= 0.50:
+                            self.x_min.append(self.sort_found_object[i].xmin)
+                            self.y_min.append(self.sort_found_object[i].ymin)
+                            self.x_max.append(self.sort_found_object[i].xmax)
+                            self.y_max.append(self.sort_found_object[i].ymax)
 
                     if self.found_object != 0:
                         # detect_person change true
                         self.found_person_msg = 1
 
-                        # for i in range(0, len(self.x_min), 1):
+                        for i in range(0, len(self.x_min), 1):
 
-                        # set person detect bounding box middle
-                        self.mid_x = (self.x_min[0] + self.x_max[0]) / 2
-                        self.mid_y = (self.y_min[0] + self.y_max[0]) / 2
+                            # set person detect bounding box middle
+                            self.mid_x = (self.x_min[i] + self.x_max[i]) / 2
+                            self.mid_y = (self.y_min[i] + self.y_max[i]) / 2
 
-                        # text detect image name
-                        cv2.putText(self.cv_image, 'person', (int(self.mid_x) - 40, int(self.mid_y)), cv2.FONT_HERSHEY_DUPLEX,
-                                    0.7, (255, 255, 255), 1)
-                        # draw rectangle
-                        self.cv_image = cv2.rectangle(self.cv_image, (self.x_min[0], self.y_min[0]), (self.x_max[0], self.y_max[0]),
-                                                 red_color, 1)
+                            # text detect image name
+                            cv2.putText(self.cv_image, 'person', (int(self.mid_x) - 40, int(self.mid_y)), cv2.FONT_HERSHEY_DUPLEX,
+                                        0.7, white_color, 1)
+                            # draw rectangle
+                            self.cv_image = cv2.rectangle(self.cv_image, (self.x_min[i], self.y_min[i]), (self.x_max[i], self.y_max[i]),
+                                                     red_color, 1)
 
-                        detect_object_mid = self.mid_x - self.point_x_center
+                            detect_object_mid = self.mid_x - self.point_x_center
 
-                        #publish person_to_drone_Alignment
-                        self.person_to_drone_Alignment_pub.publish(detect_object_mid)
+                            #publish person_to_drone_Alignment
+                            self.person_to_drone_Alignment_pub.publish(detect_object_mid)
 
+                            # start open_face
+                            # Resize frame of video to 1/2 size for faster face recognition processing
+                            small_frame = cv2.resize(self.cv_image, (0, 0), fx=0.5, fy=0.5)
 
-                        # start open_face
-                        # Resize frame of video to 1/4 size for faster face recognition processing
-                        small_frame = cv2.resize(self.cv_image, (0, 0), fx=0.5, fy=0.5)
+                            # Convert the image from BGR color (which OpenCV uses) to RGB color (which face_recognition uses)
+                            rgb_small_frame = small_frame[:, :, ::-1]
 
-                        # Convert the image from BGR color (which OpenCV uses) to RGB color (which face_recognition uses)
-                        rgb_small_frame = small_frame[:, :, ::-1]
+                            # Only process every other frame of video to save time
+                            if self.process_this_frame:
+                                # Find all the faces and face encodings in the current frame of video
+                                self.face_locations = face_recognition.face_locations(rgb_small_frame)
+                                self.face_encodings = face_recognition.face_encodings(rgb_small_frame,
+                                                                                      self.face_locations)
 
-                        # Only process every other frame of video to save time
-                        if self.process_this_frame:
-                            # Find all the faces and face encodings in the current frame of video
-                            self.face_locations = face_recognition.face_locations(rgb_small_frame)
-                            self.face_encodings = face_recognition.face_encodings(rgb_small_frame,
-                                                                                  self.face_locations)
+                                self.face_names = []
+                                for face_encoding in self.face_encodings:
+                                    # See if the face is a match for the known face(s)
+                                    distances = face_recognition.face_distance(self.known_face_encodings,
+                                                                               face_encoding)
+                                    min_value = min(distances)
 
-                            self.face_names = []
-                            for face_encoding in self.face_encodings:
-                                # See if the face is a match for the known face(s)
-                                distances = face_recognition.face_distance(self.known_face_encodings,
-                                                                           face_encoding)
-                                min_value = min(distances)
+                                    # tolerance: How much distance between faces to consider it a match. Lower is more strict.
+                                    # 0.6 is typical best performance.
+                                    self.name = "Unknown"
+                                    if min_value < 0.6:
+                                        index = np.argmin(distances)
+                                        self.name = self.known_face_names[index]
 
-                                # tolerance: How much distance between faces to consider it a match. Lower is more strict.
-                                # 0.6 is typical best performance.
-                                self.name = "Unknown"
-                                if min_value < 0.6:
-                                    index = np.argmin(distances)
-                                    self.name = self.known_face_names[index]
+                                    self.face_names.append(self.name)
 
-                                self.face_names.append(self.name)
+                            self.process_this_frame = not self.process_this_frame
 
-                        self.process_this_frame = not self.process_this_frame
+                            for (top, right, bottom, left), name in zip(self.face_locations, self.face_names):
+                                # Scale back up face locations since the frame we detected in was scaled to 1/2 size
+                                top *= 2
+                                right *= 2
+                                bottom *= 2
+                                left *= 2
 
-                        for (top, right, bottom, left), name in zip(self.face_locations, self.face_names):
-                            # Scale back up face locations since the frame we detected in was scaled to 1/2 size
-                            top *= 2
-                            right *= 2
-                            bottom *= 2
-                            left *= 2
+                                # Draw a box around the face
+                                cv2.rectangle(self.cv_image, (left, top), (right, bottom),red_color, 1)
+                                # Draw a label with a name below the face
+                                cv2.rectangle(self.cv_image, (left, bottom - 15), (right, bottom),red_color,
+                                              cv2.FILLED)
+                                font = cv2.FONT_HERSHEY_DUPLEX
+                                cv2.putText(self.cv_image, name, (left + 6, bottom - 6), font, 0.5,white_color,
+                                            1)
 
-                            # Draw a box around the face
-                            cv2.rectangle(self.cv_image, (left, top), (right, bottom), (0, 0, 255), 1)
-                            # Draw a label with a name below the face
-                            cv2.rectangle(self.cv_image, (left, bottom - 15), (right, bottom), (0, 0, 255),
-                                          cv2.FILLED)
-                            font = cv2.FONT_HERSHEY_DUPLEX
-                            cv2.putText(self.cv_image, name, (left + 6, bottom - 6), font, 0.5, (255, 255, 255),
-                                        1)
-
-                            # # check face and screen shot
-                            # if self.name == "Unknown":
-                            #     dirname = '/home/ksshin/knowns/'
-                            #     files = os.listdir(dirname)
-                            #     file_num = len(files)
-                            #     self.cv_image_capture = self.cv_image
-                            #     cv2.imwrite('/home/ksshin/knowns/somebody{}.jpg'.format(file_num), cv_image_capture,
-                            #                 params=[cv2.IMWRITE_PNG_COMPRESSION, 0])
-                            #     for filename in files:
-                            #         self.name, ext = os.path.splitext(filename)
-                            #         if ext == '.jpg':
-                            #             self.known_face_names.append(self.name)
-                            #             pathname = os.path.join(dirname, filename)
-                            #             img = face_recognition.load_image_file(pathname)
-                            #             face_encoding = face_recognition.face_encodings(img)[0]
-                            #             self.known_face_encodings.append(face_encoding)
-
-
-                        if self.curr_isyn_status_msg == 4:
-                            dirname = '/home/ksshin/Getimage/'
-                            files = os.listdir(dirname)
-                            file_num = len(files)
-                            self.cv_image_capture = self.cv_image
-                            cv2.imwrite('/home/ksshin/knowns/somebody{}.jpg'.format(file_num), self.cv_image_capture,
-                                        params=[cv2.IMWRITE_PNG_COMPRESSION, 0])
-                            self.scshot_clear = 1
-                            print("clear screen shot")
+                                # # check face and screen shot
+                                # if self.name == "Unknown":
+                                #     dirname = '/home/ksshin/knowns/'
+                                #     files = os.listdir(dirname)
+                                #     file_num = len(files)
+                                #     self.cv_image_capture = self.cv_image
+                                #     cv2.imwrite('/home/ksshin/knowns/somebody{}.jpg'.format(file_num), cv_image_capture,
+                                #                 params=[cv2.IMWRITE_PNG_COMPRESSION, 0])
+                                #     for filename in files:
+                                #         self.name, ext = os.path.splitext(filename)
+                                #         if ext == '.jpg':
+                                #             self.known_face_names.append(self.name)
+                                #             pathname = os.path.join(dirname, filename)
+                                #             img = face_recognition.load_image_file(pathname)
+                                #             face_encoding = face_recognition.face_encodings(img)[0]
+                                #             self.known_face_encodings.append(face_encoding)
 
 
-
-
+                            if self.curr_isyn_status_msg == 4 and self.scshot_clear == 0:
+                                dirname = '/home/ksshin/Getimage/'
+                                files = os.listdir(dirname)
+                                file_num = len(files)
+                                self.cv_image_capture = self.cv_image
+                                cv2.imwrite('/home/ksshin/Getimage/somebody{}.jpg'.format(file_num), self.cv_image_capture,
+                                            params=[cv2.IMWRITE_PNG_COMPRESSION, 0])
+                                self.scshot_clear = 1
+                                print("clear screen shot")
 
                 except AttributeError:
                     self.error_check_num = self.error_check_num + 1
@@ -271,8 +279,6 @@ class darknet:
                         self.error_check_num = 0
             # show display
             cv2.imshow("opencv", self.cv_image), cv2.waitKey(1)
-
-
 
 if __name__ == "__main__":
     try:
@@ -287,4 +293,3 @@ if __name__ == "__main__":
 
     except rospy.ROSInterruptException as e:
         print("ROS program exit")
-

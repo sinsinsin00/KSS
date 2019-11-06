@@ -8,13 +8,10 @@ from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Empty, Bool, UInt8, Int32
 from bebop_msgs.msg import Ardrone3PilotingStateAltitudeChanged
-
-
 if os.name == 'nt':
   import msvcrt
 else:
   import tty, termios
-
 
 class Bebop:
     def __init__(self):
@@ -200,8 +197,6 @@ class Bebop:
                     print('detect person change bebop tracking mode')
                     self.set_Alignment_flag = 1'''
 
-
-
 def getKey():
     if os.name == 'nt':
       return msvcrt.getch()
@@ -236,7 +231,6 @@ def key_control():
             print('change bebop detecting mode num 3')
             bebop.bebop_mode_msg = 3
 
-
         time.sleep(0.1)
 
 if __name__ == "__main__":
@@ -257,7 +251,3 @@ if __name__ == "__main__":
 
     except rospy.ROSInterruptException as e:
         print("ROS program exit")
-
-
-
-
