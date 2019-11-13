@@ -27,38 +27,42 @@ class darknet:
         rospy.init_node('detect_tracking', anonymous=True)
 
         #bebop info
+        #sub
         #self.opencv_img_sub = rospy.Subscriber('/image_raw', Image, self.callback_opencv)
-        self.opencv_img_sub = rospy.Subscriber('/bebop/image_raw', Image, self.callback_opencv)
+        self.opencv_img_sub = rospy.Subscriber('/image_raw', Image, self.callback_opencv)
 
-        #communication with bebop
+        #with bebop
+        #sub
         self.bebop_mode_sub = rospy.Subscriber('/bebop_mode', UInt8, self.callback_bebop_mode)
-        self.bebop_status_sub = rospy.Subscriber('/bebop_status', Int32,self.callback_bebop_status, queue_size=10)
-        self.bebop_req_save_image = rospy.Subscriber('/bebop_req_save_image',Int8,self.callback_bebop_req_save_image, queue_size=5)
+        self.bebop_status_sub = rospy.Subscriber('/bebop_status', Int32,self.callback_bebop_status, queue_size=5)
+        self.bebop_req_save_image_sub = rospy.Subscriber('/bebop_req_save_image',Int8,self.callback_bebop_req_save_image, queue_size=5)
+        #pub
+        self.person_to_drone_Alignment_pub = rospy.Publisher('/person_to_drone_Alignment', String, queue_size=5)
+        self.isyn_status_pub = rospy.Publisher('/status_isyn', Int32, queue_size=1)
+        self.found_person_pub = rospy.Publisher("/found_person", Int8, queue_size=1)
+        self.isyn_save_image_clear_pub = rospy.Publisher('/isyn_save_image_clear',Int8,queue_size=1)
 
-        self.person_to_drone_Alignment_pub = rospy.Publisher('/person_to_drone_Alignment', String, queue_size=10)
-        self.isyn_status_pub = rospy.Publisher('/status_isyn', Int32, queue_size=10)
-        self.found_person_pub = rospy.Publisher("/found_person", Int8, queue_size=10)
 
-
-        #communicaion with darknet
-        self.image_pub = rospy.Publisher("/send_to_image", Image, queue_size = 10)
+        #with darknet
+        #sub
         self.found_object_sub = rospy.Subscriber('/darknet_ros/found_object', Int8, self.callback_found_object)
         self.bounding_sub = rospy.Subscriber('/darknet_ros/bounding_boxes', BoundingBoxes, self.callback_darknet)
+        #pub
+        self.image_pub = rospy.Publisher("/send_to_image", Image, queue_size = 5)
 
         #init
         self.selecting_sub_image = "raw"  # you can choose image type "compressed", "raw"
         self.bridge = CvBridge()
-        self.rate = rospy.Rate(10)
         self.box = BoundingBoxes()
         self.detect_object_mid = []
-
+        self.curr_bebop_req_save_image = 0
         #init isyn
         self.curr_isyn_status_msg = 0
         self.curr_bebop_status_msg = 0
         self.found_person_msg = 0
         self.found_object = 0
-        #init flag
-        self.scshot_clear = 0
+        #init flagf
+        self.scshot_clear_msg = 0
         self.error_check_num = 0
 
         # detect_face_init
@@ -90,7 +94,6 @@ class darknet:
         self.point_x_center = self.width / 2
         self.point_y_center = self.height / 2
 
-
         print("init clear")
 
     def callback_opencv(self, image_msg):
@@ -119,7 +122,6 @@ class darknet:
         self.curr_bebop_req_save_image = bebop_req_save_image_data
 
     def open_face(self):
-        # start open_face
         # Resize frame of video to 1/2 size for faster face recognition processing
         small_frame = cv2.resize(self.cv_image, (0, 0), fx=0.5, fy=0.5)
 
@@ -172,7 +174,6 @@ class darknet:
 
         if self.curr_bebop_status_msg == 1 and self.cv_image.any():
             self.curr_isyn_status_msg = 1
-            self.scshot_clear = 0
 
         if self.curr_bebop_status_msg == 2 and self.cv_image.any() and self.found_object >= 0:
             self.curr_isyn_status_msg = 2
@@ -180,14 +181,14 @@ class darknet:
         if self.curr_bebop_status_msg == 3 and self.cv_image.any() and self.found_object >= 1:
             self.curr_isyn_status_msg = 3
 
-        if self.curr_bebop_status_msg == 5 and self.cv_image.any() and self.found_object >= 1 and self.scshot_clear == 0:
+        if self.curr_bebop_status_msg == 5 and self.cv_image.any() and self.found_object >= 1 and self.scshot_clear_msg == 0:
             self.curr_isyn_status_msg = 4
 
 
     #thread func
     def person_detect(self):
         while(1):
-            time.sleep(0.1)
+            time.sleep(0.033)
             #change_isyn_status
             self.isyn_change_stat()
 
@@ -200,9 +201,7 @@ class darknet:
             self.cv_image = cv2.line(self.cv_image, (self.point_x_center, self.point_y_center),
                                      (self.point_x_center, self.point_y_center), red_color, 5)
 
-
-            #if self.curr_isyn_status_msg == 3 or self.curr_isyn_status_msg == 4:
-            if self.curr_isyn_status_msg == 0:
+            if self.curr_isyn_status_msg == 3:
                 try:
                     self.sort_found_object = []
                     for i in range(0, len(self.found_object_xy.bounding_boxes), 1):
@@ -253,20 +252,27 @@ class darknet:
                             self.person_to_drone_Alignment_pub.publish(self.detect_object_mid)
                             self.detect_object_mid = []
 
-                        if self.curr_isyn_status_msg == 4 and self.scshot_clear == 0:
+                        if self.curr_bebop_req_save_image == 1:
                             dirname = '/home/ksshin/Getimage/'
                             files = os.listdir(dirname)
                             file_num = len(files)
                             self.cv_image_capture = self.cv_image
                             cv2.imwrite('/home/ksshin/Getimage/somebody{}.jpg'.format(file_num), self.cv_image_capture,
                                         params=[cv2.IMWRITE_PNG_COMPRESSION, 0])
-                            self.scshot_clear = 1
+                            self.scshot_clear_msg = 1
+                            self.isyn_save_image_clear_pub.publish(self.scshot_clear_msg)
                             print("clear screen shot")
+
+                        elif self.curr_bebop_req_save_image == 0:
+                            self.scshot_clear_msg = 0
+                            self.isyn_save_image_clear_pub.publish(self.scshot_clear_msg)
 
                     elif self.found_object == 0:
                             self.detect_object_mid = 'not data'
                             self.person_to_drone_Alignment_pub.publish(self.detect_object_mid)
                             self.detect_object_mid = []
+
+                    # start face_recognition
                     self.open_face()
 
                 except AttributeError as e:
