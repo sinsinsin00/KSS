@@ -29,7 +29,7 @@ class darknet:
         #bebop info
         #sub
         #self.opencv_img_sub = rospy.Subscriber('/image_raw', Image, self.callback_opencv)
-        self.opencv_img_sub = rospy.Subscriber('/image_raw', Image, self.callback_opencv)
+        self.opencv_img_sub = rospy.Subscriber('/bebop/image_raw', Image, self.callback_opencv)
 
         #with bebop
         #sub
@@ -41,7 +41,6 @@ class darknet:
         self.isyn_status_pub = rospy.Publisher('/status_isyn', Int32, queue_size=1)
         self.found_person_pub = rospy.Publisher("/found_person", Int8, queue_size=1)
         self.isyn_save_image_clear_pub = rospy.Publisher('/isyn_save_image_clear',Int8,queue_size=1)
-
 
         #with darknet
         #sub
@@ -181,8 +180,8 @@ class darknet:
         if self.curr_bebop_status_msg == 3 and self.cv_image.any() and self.found_object >= 1:
             self.curr_isyn_status_msg = 3
 
-        if self.curr_bebop_status_msg == 5 and self.cv_image.any() and self.found_object >= 1 and self.scshot_clear_msg == 0:
-            self.curr_isyn_status_msg = 4
+        # if self.curr_bebop_status_msg == 5 and self.cv_image.any() and self.found_object >= 1 and self.scshot_clear_msg == 0:
+        #     self.curr_isyn_status_msg = 4
 
 
     #thread func
@@ -201,86 +200,84 @@ class darknet:
             self.cv_image = cv2.line(self.cv_image, (self.point_x_center, self.point_y_center),
                                      (self.point_x_center, self.point_y_center), red_color, 5)
 
-            if self.curr_isyn_status_msg == 3:
-                try:
-                    self.sort_found_object = []
-                    for i in range(0, len(self.found_object_xy.bounding_boxes), 1):
-                        self.sort_found_object.append(self.found_object_xy.bounding_boxes[i])
+            try:
+                self.sort_found_object = []
+                for i in range(0, len(self.found_object_xy.bounding_boxes), 1):
+                    self.sort_found_object.append(self.found_object_xy.bounding_boxes[i])
 
-                    for i in range(1, len(self.sort_found_object), 1):
-                        if self.sort_found_object[i].xmin > self.sort_found_object[i - 1].xmin:
-                            tmp = self.sort_found_object[i - 1]
-                            self.sort_found_object[i - 1] = self.sort_found_object[i]
-                            self.sort_found_object[i] = tmp
+                for i in range(1, len(self.sort_found_object), 1):
+                    if self.sort_found_object[i].xmin > self.sort_found_object[i - 1].xmin:
+                        tmp = self.sort_found_object[i - 1]
+                        self.sort_found_object[i - 1] = self.sort_found_object[i]
+                        self.sort_found_object[i] = tmp
 
-                    self.x_min = []
-                    self.y_min = []
-                    self.x_max = []
-                    self.y_max = []
+                self.x_min = []
+                self.y_min = []
+                self.x_max = []
+                self.y_max = []
 
-                    for i in range(0, len(self.sort_found_object), 1):
-                        if self.sort_found_object[i].probability >= 0.50:
-                            self.x_min.append(self.sort_found_object[i].xmin)
-                            self.y_min.append(self.sort_found_object[i].ymin)
-                            self.x_max.append(self.sort_found_object[i].xmax)
-                            self.y_max.append(self.sort_found_object[i].ymax)
+                for i in range(0, len(self.sort_found_object), 1):
+                    if self.sort_found_object[i].probability >= 0.10:
+                        self.x_min.append(self.sort_found_object[i].xmin)
+                        self.y_min.append(self.sort_found_object[i].ymin)
+                        self.x_max.append(self.sort_found_object[i].xmax)
+                        self.y_max.append(self.sort_found_object[i].ymax)
 
-                    if self.found_object != 0:
-                        # detect_person number
-                        self.found_person_msg = self.found_object
+                if self.found_object != 0:
+                    # detect_person number
+                    self.found_person_msg = self.found_object
 
-                        for i in range(0, len(self.x_min), 1):
-                            # set person detect bounding box middle
-                            self.mid_x = (self.x_min[i] + self.x_max[i]) / 2
-                            self.mid_y = (self.y_min[i] + self.y_max[i]) / 2
+                    for i in range(0, len(self.x_min), 1):
+                        # set person detect bounding box middle
+                        self.mid_x = (self.x_min[i] + self.x_max[i]) / 2
+                        self.mid_y = (self.y_min[i] + self.y_max[i]) / 2
 
-                            # text detect image name
-                            cv2.putText(self.cv_image, 'Person {} '.format(i), (int(self.mid_x) - 40, int(self.mid_y)), cv2.FONT_HERSHEY_DUPLEX,
-                                        0.7, white_color, 1)
+                        # text detect image name
+                        cv2.putText(self.cv_image, 'Person {} '.format(i), (int(self.mid_x) - 40, int(self.mid_y)), cv2.FONT_HERSHEY_DUPLEX,
+                                    0.7, white_color, 1)
 
-                            # draw rectangle
-                            self.cv_image = cv2.rectangle(self.cv_image, (self.x_min[i], self.y_min[i]), (self.x_max[i], self.y_max[i]),
-                                                     red_color, 1)
+                        # draw rectangle
+                        self.cv_image = cv2.rectangle(self.cv_image, (self.x_min[i], self.y_min[i]), (self.x_max[i], self.y_max[i]),
+                                                 red_color, 1)
 
-                            self.detect_object_mid.append(self.mid_x - self.point_x_center)
+                        self.detect_object_mid.append(self.mid_x - self.point_x_center)
 
 
-                        #publish person_to_drone_Alignment
-                        if self.detect_object_mid :
-                            self.detect_object_mid = str(self.detect_object_mid)
-                            print(self.detect_object_mid )
-                            self.person_to_drone_Alignment_pub.publish(self.detect_object_mid)
-                            self.detect_object_mid = []
+                    #publish person_to_drone_Alignment
+                    if self.detect_object_mid :
+                        self.detect_object_mid = str(self.detect_object_mid)
+                        self.person_to_drone_Alignment_pub.publish(self.detect_object_mid)
+                        self.detect_object_mid = []
 
-                        if self.curr_bebop_req_save_image == 1:
-                            dirname = '/home/ksshin/Getimage/'
-                            files = os.listdir(dirname)
-                            file_num = len(files)
-                            self.cv_image_capture = self.cv_image
-                            cv2.imwrite('/home/ksshin/Getimage/somebody{}.jpg'.format(file_num), self.cv_image_capture,
-                                        params=[cv2.IMWRITE_PNG_COMPRESSION, 0])
-                            self.scshot_clear_msg = 1
-                            self.isyn_save_image_clear_pub.publish(self.scshot_clear_msg)
-                            print("clear screen shot")
+                    if self.curr_bebop_req_save_image == 1:
+                        dirname = '/home/ksshin/Getimage/'
+                        files = os.listdir(dirname)
+                        file_num = len(files)
+                        self.cv_image_capture = self.cv_image
+                        cv2.imwrite('/home/ksshin/Getimage/somebody{}.jpg'.format(file_num), self.cv_image_capture,
+                                    params=[cv2.IMWRITE_PNG_COMPRESSION, 0])
+                        self.scshot_clear_msg = 1
+                        self.isyn_save_image_clear_pub.publish(self.scshot_clear_msg)
+                        print("clear screen shot")
 
-                        elif self.curr_bebop_req_save_image == 0:
-                            self.scshot_clear_msg = 0
-                            self.isyn_save_image_clear_pub.publish(self.scshot_clear_msg)
+                    elif self.curr_bebop_req_save_image == 0:
+                        self.scshot_clear_msg = 0
+                        self.isyn_save_image_clear_pub.publish(self.scshot_clear_msg)
 
-                    elif self.found_object == 0:
-                            self.detect_object_mid = 'not data'
-                            self.person_to_drone_Alignment_pub.publish(self.detect_object_mid)
-                            self.detect_object_mid = []
+                elif self.found_object == 0:
+                        self.detect_object_mid = 'not data'
+                        self.person_to_drone_Alignment_pub.publish(self.detect_object_mid)
+                        self.detect_object_mid = []
 
-                    # start face_recognition
-                    self.open_face()
+                # start face_recognition
+                self.open_face()
 
-                except AttributeError as e:
-                    self.error_check_num = self.error_check_num + 1
-                    if self.error_check_num >= 25:
-                        print("wait darknet data or check your bebop mode")
-                        print(e)
-                        self.error_check_num = 0
+            except AttributeError as e:
+                self.error_check_num = self.error_check_num + 1
+                if self.error_check_num >= 25:
+                    print("wait darknet data or check your bebop mode")
+                    print(e)
+                    self.error_check_num = 0
 
             # show display
             cv2.imshow("opencv", self.cv_image), cv2.waitKey(1)

@@ -64,12 +64,12 @@ class Bebop:
 
     def take_off(self):
         rospy.sleep(1)
-        self.pub_takeoff.publish(self.empty_msg)
+        self.bebop_pub_takeoff.publish(self.empty_msg)
         print("bebop_will_take_off")
 
     def land(self):
         rospy.sleep(1)
-        self.pub_land.publish(self.empty_msg)
+        self.bebop_pub_land.publish(self.empty_msg)
         print("bebop_is_landing")
 
     def callback_bebop_odom(self,bebop_odom_data):
@@ -77,9 +77,11 @@ class Bebop:
 
     def callback_person_to_drone_Alignment(self,Alignment_data):
         self.curr_Alignment = Alignment_data.data
-        if self.curr_Alignment != 0:
+        if self.curr_Alignment != 0 and self.curr_Alignment != 'not data':
             self.split_Alignment_data = self.curr_Alignment[1:-1]
-            self.split_Alignment_data = self.split_Alignment_data.split(',')
+            self.split_Alignment_data = map(int,self.split_Alignment_data.split(','))
+        elif self.curr_Alignment == 'not data':
+            self.split_Alignment_data = 'not data'
 
 
     def callback_found_person(self,found_person_data):
@@ -114,32 +116,34 @@ class Bebop:
         if self.bebop_mode_msg == 2 and self.curr_isyn_status_msg == 3:
             self.curr_bebop_status_msg = 4
 
-        if self.bebop_mode_msg == 2 and self.curr_isyn_status_msg == 3:
-            self.curr_bebop_status_msg = 5
+        # if self.bebop_mode_msg == 2 and self.curr_isyn_status_msg == 3:
+        #     self.curr_bebop_status_msg = 5
 
 
     def set_detect_person_center(self):
         try:
-            if self.curr_bebop_status_msg == 4 and self.split_Alignment_data > 0:
+            if self.curr_bebop_status_msg == 3 and self.split_Alignment_data > 0:
                 print("start set center")
                 for i in range(0,len(self.split_Alignment_data),1):
                     while (1):
-                        if (self.split_Alignment_data[i] < self.thresh_Alignment_max):
-                            self.msg.angular.z = self.curr_angular_speed
-                            self.msg.angular.x = self.msg.angular.y = 0
-
-                        if (self.split_Alignment_data[i] > self.thresh_Alignment_min):
-                            self.msg.angular.z = -self.curr_angular_speed
-                            self.msg.angular.x = self.msg.angular.y = 0
-
                         if (self.split_Alignment_data[i] < self.thresh_Alignment_max and self.split_Alignment_data[i] > self.thresh_Alignment_min):
                             self.msg.angular.x = self.msg.angular.y = self.msg.angular.z = 0
                             if self.curr_isyn_save_image_clear == 1:
                                 self.bebop_req_save_image_pub.publish(0)
+                                #print("debug 1")
                                 break
-
                             if self.curr_isyn_save_image_clear == 0:
+                                #print("debug 2")
                                 self.bebop_req_save_image_pub.publish(1)
+
+                        if (self.split_Alignment_data[i] < self.thresh_Alignment_max):
+                            self.msg.angular.z = self.curr_angular_speed
+                            self.msg.angular.x = self.msg.angular.y = 0
+                            #print("debug 3")
+                        if (self.split_Alignment_data[i] > self.thresh_Alignment_min):
+                            self.msg.angular.z = - self.curr_angular_speed
+                            self.msg.angular.x = self.msg.angular.y = 0
+                            #print("debug 4")
 
                         self.bebop_control_pub.publish(self.msg)
                         rospy.sleep(0.033)
@@ -169,9 +173,7 @@ class Bebop:
             #print('curr_isyn_status : ',self.curr_isyn_status_msg)
             if self.curr_bebop_status_msg == 3 and self.point_local_scan_clear == 0:
                 start_bebop_odom_z = self.curr_bebop_odom_z
-                print("in")
                 while(self.curr_bebop_odom_z > 0 or self.curr_bebop_odom_z < 0) :
-
                     self.msg.angular.z = self.curr_angular_speed
                     self.bebop_control_pub.publish(self.msg)
                     if self.curr_found_person > 0:
