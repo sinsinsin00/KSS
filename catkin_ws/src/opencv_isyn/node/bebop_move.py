@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import threading
-import rospy, os, time, sys, termios, select, atexit, math
+import rospy, os, time, sys, termios, select
 
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
@@ -12,6 +12,7 @@ if os.name == 'nt':
   import msvcrt
 else:
   import tty, termios
+
 
 class Bebop:
     def __init__(self):
@@ -81,8 +82,7 @@ class Bebop:
             self.split_Alignment_data = self.curr_Alignment[1:-1]
             self.split_Alignment_data = map(int,self.split_Alignment_data.split(','))
         elif self.curr_Alignment == 'not data':
-            self.split_Alignment_data = 'not data'
-
+            self.split_Alignment_data = [-1]
 
     def callback_found_person(self,found_person_data):
         self.curr_found_person = found_person_data.data
@@ -94,12 +94,16 @@ class Bebop:
         self.curr_isyn_status_msg = isyn_status_data.data
 
     def callback_isyn_save_image_clear(self,isyn_save_image_clear):
-        self.curr_isyn_save_image_clear = isyn_save_image_clear
+        self.curr_isyn_save_image_clear = isyn_save_image_clear.data
 
     def bebop_change_stat(self):
         # send msg of bebop status
         # if self.bebop_mode_msg == 1:
         #     self.curr_bebop_status_msg = 0
+
+        if self.curr_bebop_takeoff_stat.altitude > 0 :
+            self.curr_bebop_status_msg = 0
+            self.bebop_mode_msg = 0
 
         if self.bebop_mode_msg == 2 and self.curr_bebop_takeoff_stat.altitude > 0 and self.curr_isyn_status_msg == 0:
             self.curr_bebop_status_msg = 1
@@ -119,10 +123,12 @@ class Bebop:
         # if self.bebop_mode_msg == 2 and self.curr_isyn_status_msg == 3:
         #     self.curr_bebop_status_msg = 5
 
-
     def set_detect_person_center(self):
         try:
-            if self.curr_bebop_status_msg == 3 and self.split_Alignment_data > 0:
+            if self.split_Alignment_data[0] == -1:
+                print('not split Alignment data')
+
+            elif self.curr_bebop_status_msg == 3 and self.split_Alignment_data > 0:
                 print("start set center")
                 for i in range(0,len(self.split_Alignment_data),1):
                     while (1):
@@ -130,29 +136,33 @@ class Bebop:
                             self.msg.angular.x = self.msg.angular.y = self.msg.angular.z = 0
                             if self.curr_isyn_save_image_clear == 1:
                                 self.bebop_req_save_image_pub.publish(0)
-                                #print("debug 1")
                                 break
                             if self.curr_isyn_save_image_clear == 0:
-                                #print("debug 2")
                                 self.bebop_req_save_image_pub.publish(1)
 
                         if (self.split_Alignment_data[i] < self.thresh_Alignment_max):
                             self.msg.angular.z = self.curr_angular_speed
                             self.msg.angular.x = self.msg.angular.y = 0
-                            #print("debug 3")
                         if (self.split_Alignment_data[i] > self.thresh_Alignment_min):
                             self.msg.angular.z = - self.curr_angular_speed
                             self.msg.angular.x = self.msg.angular.y = 0
-                            #print("debug 4")
 
                         self.bebop_control_pub.publish(self.msg)
-                        rospy.sleep(0.033)
+                        rospy.sleep(0.1)
 
-        except AttributeError:
+            self.point_local_scan_clear = 1
+
+        except AttributeError :
             self.error_check_num = self.error_check_num + 1
             if self.error_check_num >= 5:
                 print("wait Alignment data")
                 self.error_check_num = 0
+
+        except IndexError as e:
+            self.point_local_scan_clear = 1
+            if self.curr_isyn_save_image_clear == 1:
+                self.bebop_req_save_image_pub.publish(0)
+            print(e)
 
     # thread func
     def bebop_move(self):
@@ -165,28 +175,26 @@ class Bebop:
             self.bebop_mode_pub.publish(self.bebop_mode_msg)
             self.bebop_status_pub.publish(self.curr_bebop_status_msg)
 
-            # try:
-            #     print(self.split_Alignment_data)
-            # except AttributeError as e :
-            #     print(e)
-
-            #print('curr_isyn_status : ',self.curr_isyn_status_msg)
             if self.curr_bebop_status_msg == 3 and self.point_local_scan_clear == 0:
-                start_bebop_odom_z = self.curr_bebop_odom_z
-                while(self.curr_bebop_odom_z > 0 or self.curr_bebop_odom_z < 0) :
+                while(self.curr_bebop_odom_z > 0) :
                     self.msg.angular.z = self.curr_angular_speed
                     self.bebop_control_pub.publish(self.msg)
                     if self.curr_found_person > 0:
                         self.scan_delay += 1
-                        if self.scan_delay == 20:
+                        if self.scan_delay == 20 and self.point_local_scan_clear == 0:
                             print("start detect person center")
                             self.set_detect_person_center()
-                            break
-                            # self.msg.angular.x = self.msg.angular.y = self.msg.angular.z = 0
-                            # self.bebop_control_pub.publish(self.msg)
-                            # self.point_local_scan_clear = 1
-                            # self.curr_bebop_status_msg = 4
-                    rospy.sleep(0.033)
+                    rospy.sleep(0.1)
+
+                while( self.curr_bebop_odom_z < 0) :
+                    self.msg.angular.z = self.curr_angular_speed
+                    self.bebop_control_pub.publish(self.msg)
+                    if self.curr_found_person > 0:
+                        self.scan_delay += 1
+                        if self.scan_delay == 20 and self.point_local_scan_clear == 0:
+                            print("start detect person center")
+                            self.set_detect_person_center()
+                    rospy.sleep(0.1)
 
                 self.msg.angular.x = self.msg.angular.y = self.msg.angular.z = 0
                 self.bebop_control_pub.publish(self.msg)
@@ -203,7 +211,6 @@ def getKey():
         key = ''
     termios.tcsetattr(sys.stdin, termios.TCSADRAIN, settings)
     return key
-
 
 def key_control():
     while (1):

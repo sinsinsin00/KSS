@@ -1,27 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-
-import cv2
 import rospy
-import numpy as np
 import threading
-import sys, select, os, time
-import face_recognition
-import matplotlib
+import  os
 
 from std_msgs.msg import Int8, UInt8, Int32, String
-from sensor_msgs.msg import Image
-from cv_bridge import CvBridge, CvBridgeError
 from darknet_ros_msgs.msg import BoundingBoxes
 from bebop_msgs.msg import Ardrone3PilotingStateAltitudeChanged
 from bebop_msgs.msg import CommonCommonStateBatteryStateChanged
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Twist
-if os.name == 'nt':
-  import msvcrt
-else:
-  import tty, termios
+
 
 class mornitor:
     def __init__(self):
@@ -39,7 +28,6 @@ class mornitor:
         self.isyn_found_object_sub = rospy.Subscriber('/found_person', Int8, self.callback_found_person)
         self.isyn_save_image_clear_sub = rospy.Subscriber('/isyn_save_image_clear', Int8,self.callback_isyn_save_image_clear, queue_size=1)
 
-
         #init isyn
         self.curr_isyn_status_msg = 0
         self.curr_bebop_status_msg = 0
@@ -53,9 +41,11 @@ class mornitor:
         self.curr_Alignment = 0
 
         self.found_object_xy = 0
-        self.split_Alignment_data = 'not data'
-        self.curr_bebop_battery_stat = 'not data'
-
+        self.split_Alignment_data = 'loding'
+        self.curr_bebop_battery_stat = 'loding'
+        self.curr_bebop_req_save_image = 'loding'
+        self.curr_found_person = 'loding'
+        self.curr_isyn_save_image_clear = 'loding'
 
     def callback_bebop_mode(self,bebop_mode_data):
         self.curr_bebop_mode = bebop_mode_data.data
@@ -75,7 +65,6 @@ class mornitor:
     def callback_bebop_battery_stat(self,bebop_bettery_stat_data):
         self.curr_bebop_battery_stat = bebop_bettery_stat_data.percent
 
-
     def callback_found_object(self,found_object_num_data):
         self.found_object = found_object_num_data.data
 
@@ -91,7 +80,7 @@ class mornitor:
             self.split_Alignment_data = 'not data'
 
     def callback_bebop_req_save_image(self,bebop_req_save_image_data):
-        self.curr_bebop_req_save_image = bebop_req_save_image_data
+        self.curr_bebop_req_save_image = bebop_req_save_image_data.data
 
     def callback_isyn_status(self,isyn_status_data):
         self.curr_isyn_status_msg = isyn_status_data.data
@@ -100,8 +89,7 @@ class mornitor:
         self.curr_found_person = found_person_data.data
 
     def callback_isyn_save_image_clear(self,isyn_save_image_clear):
-        self.curr_isyn_save_image_clear = isyn_save_image_clear
-
+        self.curr_isyn_save_image_clear = isyn_save_image_clear.data
 
     def monitoring_thread(self):
         while(1):
@@ -110,12 +98,12 @@ class mornitor:
                 print('bebop_mode                   :       [{}] '.format(self.curr_bebop_mode))
                 print('bebop_stat                   :       [{}] '.format(self.curr_bebop_status_msg))
                 print('isyn_stat                    :       [{}] '.format(self.curr_isyn_status_msg))
+                print('curr_found_person            :       [{}] '.format(self.curr_found_person))
+                print('save_image_clear             :       [{}] '.format(self.curr_isyn_save_image_clear))
                 print('bebop_takeoff_stat           :       [{}] '.format(self.curr_bebop_takeoff_stat))
                 print('bebop battery stat           :       [{}] '.format(self.curr_bebop_battery_stat))
+                print('bebop_req_save_image         :       [{}] '.format(self.curr_bebop_req_save_image))
                 print('Alignment data               :       [{}] '.format(self.split_Alignment_data))
-
-                #print("detect location :    [{}] ".format(self.found_object_xy.bounding_boxes))
-
                 print("#" * 50)
                 rospy.sleep(0.3)
                 os.system('clear')
@@ -125,7 +113,6 @@ class mornitor:
                 print("#" * 50)
                 rospy.sleep(1)
                 os.system('clear')
-
 
 if __name__  == "__main__":
     try:

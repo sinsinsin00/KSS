@@ -5,9 +5,8 @@ import cv2
 import rospy
 import numpy as np
 import threading
-import sys, select, os, time
+import os, time
 import face_recognition
-import matplotlib
 
 from std_msgs.msg import Int8, UInt8, Int32, String
 from sensor_msgs.msg import Image
@@ -20,6 +19,7 @@ green_color = (0,255,0)
 red_color   = (0,0,255)
 black_color = (0,0,0)
 white_color = (255,255,255)
+
 
 class darknet:
     def __init__(self):
@@ -118,7 +118,7 @@ class darknet:
         self.curr_bebop_status_msg = bebop_status_data.data
 
     def callback_bebop_req_save_image(self,bebop_req_save_image_data):
-        self.curr_bebop_req_save_image = bebop_req_save_image_data
+        self.curr_bebop_req_save_image = bebop_req_save_image_data.data
 
     def open_face(self):
         # Resize frame of video to 1/2 size for faster face recognition processing
@@ -187,7 +187,7 @@ class darknet:
     #thread func
     def person_detect(self):
         while(1):
-            time.sleep(0.033)
+            time.sleep(0.1)
             #change_isyn_status
             self.isyn_change_stat()
 

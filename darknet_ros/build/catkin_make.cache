@@ -1,2 +1,0 @@
-darknet_ros/darknet_ros:darknet_ros/darknet_ros_msgs
--DCATKIN_DEVEL_PREFIX=/home/ksshin/darknet_ros/devel -DCMAKE_INSTALL_PREFIX=/home/ksshin/darknet_ros/install -G Unix Makefiles
