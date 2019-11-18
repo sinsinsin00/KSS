@@ -55,6 +55,9 @@ class mornitor:
 
     def callback_bebop_odom(self,bebop_odom_data):
         self.curr_bebop_odom_z = bebop_odom_data.pose.pose.orientation.z
+        self.curr_bebop_odom_z = self.curr_bebop_odom_z * 100
+        self.curr_bebop_odom_z = int(self.curr_bebop_odom_z)
+
 
     def callback_bebop_takeoff_stat(self,bebop_takeoff_stat_data):
         if bebop_takeoff_stat_data.altitude > 0:
@@ -99,6 +102,7 @@ class mornitor:
                 print('bebop_stat                   :       [{}] '.format(self.curr_bebop_status_msg))
                 print('isyn_stat                    :       [{}] '.format(self.curr_isyn_status_msg))
                 print('curr_found_person            :       [{}] '.format(self.curr_found_person))
+                print('bebop odom_z                 :       [{}] '.format(self.curr_bebop_odom_z))
                 print('save_image_clear             :       [{}] '.format(self.curr_isyn_save_image_clear))
                 print('bebop_takeoff_stat           :       [{}] '.format(self.curr_bebop_takeoff_stat))
                 print('bebop battery stat           :       [{}] '.format(self.curr_bebop_battery_stat))

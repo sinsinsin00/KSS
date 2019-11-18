@@ -21,7 +21,7 @@ black_color = (0,0,0)
 white_color = (255,255,255)
 
 
-class darknet:
+class isyn:
     def __init__(self):
         print("init start")
         rospy.init_node('detect_tracking', anonymous=True)
@@ -217,7 +217,7 @@ class darknet:
                 self.y_max = []
 
                 for i in range(0, len(self.sort_found_object), 1):
-                    if self.sort_found_object[i].probability >= 0.10:
+                    if self.sort_found_object[i].probability >= 0.50:
                         self.x_min.append(self.sort_found_object[i].xmin)
                         self.y_min.append(self.sort_found_object[i].ymin)
                         self.x_max.append(self.sort_found_object[i].xmax)
@@ -284,8 +284,8 @@ class darknet:
 
 if __name__ == "__main__":
     try:
-        x = darknet()
-        threading1 = threading.Thread(target=x.person_detect)
+        isyn_pj = isyn()
+        threading1 = threading.Thread(target=isyn_pj.person_detect)
         threading1.daemon = True
         threading1.start()
         rospy.spin()

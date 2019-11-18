@@ -75,7 +75,9 @@ class Bebop:
 
     def callback_bebop_odom(self,bebop_odom_data):
         self.curr_bebop_odom_z = bebop_odom_data.pose.pose.orientation.z
-
+        self.curr_bebop_odom_z = self.curr_bebop_odom_z * 100
+        self.curr_bebop_odom_z = int(self.curr_bebop_odom_z)
+        
     def callback_person_to_drone_Alignment(self,Alignment_data):
         self.curr_Alignment = Alignment_data.data
         if self.curr_Alignment != 0 and self.curr_Alignment != 'not data':
@@ -101,7 +103,7 @@ class Bebop:
         # if self.bebop_mode_msg == 1:
         #     self.curr_bebop_status_msg = 0
 
-        if self.curr_bebop_takeoff_stat.altitude > 0 :
+        if self.curr_bebop_takeoff_stat.altitude == 0 :
             self.curr_bebop_status_msg = 0
             self.bebop_mode_msg = 0
 
@@ -149,8 +151,7 @@ class Bebop:
 
                         self.bebop_control_pub.publish(self.msg)
                         rospy.sleep(0.1)
-
-            self.point_local_scan_clear = 1
+                self.point_local_scan_clear = 1
 
         except AttributeError :
             self.error_check_num = self.error_check_num + 1
@@ -176,7 +177,9 @@ class Bebop:
             self.bebop_status_pub.publish(self.curr_bebop_status_msg)
 
             if self.curr_bebop_status_msg == 3 and self.point_local_scan_clear == 0:
-                while(self.curr_bebop_odom_z > 0) :
+                limit_odom_z = self.curr_bebop_odom_z
+                print(limit_odom_z)
+                while(1) :
                     self.msg.angular.z = self.curr_angular_speed
                     self.bebop_control_pub.publish(self.msg)
                     if self.curr_found_person > 0:
@@ -184,21 +187,15 @@ class Bebop:
                         if self.scan_delay == 20 and self.point_local_scan_clear == 0:
                             print("start detect person center")
                             self.set_detect_person_center()
-                    rospy.sleep(0.1)
-
-                while( self.curr_bebop_odom_z < 0) :
-                    self.msg.angular.z = self.curr_angular_speed
-                    self.bebop_control_pub.publish(self.msg)
-                    if self.curr_found_person > 0:
-                        self.scan_delay += 1
-                        if self.scan_delay == 20 and self.point_local_scan_clear == 0:
-                            print("start detect person center")
-                            self.set_detect_person_center()
+                    if self.curr_bebop_odom_z == limit_odom_z and self.point_local_scan_clear == 1:
+                        self.bebop_mode_msg = 1
+                        break
                     rospy.sleep(0.1)
 
                 self.msg.angular.x = self.msg.angular.y = self.msg.angular.z = 0
                 self.bebop_control_pub.publish(self.msg)
-                self.point_local_scan_clear = 1
+
+
 
 def getKey():
     if os.name == 'nt':
