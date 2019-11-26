@@ -148,7 +148,7 @@ void YoloObjectDetector::init()
   nodeHandle_.param("publishers/object_detector/latch", objectDetectorLatch, false);
   nodeHandle_.param("publishers/bounding_boxes/topic", boundingBoxesTopicName,
                     std::string("bounding_boxes"));
-  nodeHandle_.param("publishers/bounding_boxes/queue_size", boundingBoxesQueueSize, 1);
+  nodeHandle_.param("publishers/bounding_boxes/queue_size", boundingBoxesQueueSize, 1);q
   nodeHandle_.param("publishers/bounding_boxes/latch", boundingBoxesLatch, false);
   nodeHandle_.param("publishers/detection_image/topic", detectionImageTopicName,
                     std::string("detection_image"));

@@ -21,7 +21,8 @@ class Bebop:
         # bebop info
         #sub
         self.bebop_odom_sub = rospy.Subscriber('/bebop/odom', Odometry, self.callback_bebop_odom, queue_size=5)
-        self.bebop_altitude_sub = rospy.Subscriber('/bebop/states/ardrone3/PilotingState/AltitudeChanged',Ardrone3PilotingStateAltitudeChanged,self.callback_bebop_takeoff_stat,queue_size = 1)
+        self.bebop_altitude_sub = rospy.Subscriber('/bebop/states/ardrone3/PilotingState/AltitudeChanged',Ardrone3PilotingStateAltitudeChanged,self.
+                                                   callback_bebop_takeoff_stat,queue_size = 1)
 
         # bebop control
         #pub
@@ -41,6 +42,12 @@ class Bebop:
         self.bebop_req_save_image_pub = rospy.Publisher('/bebop_req_save_image',Int8,queue_size = 1)
 
 
+        #with bebop mode_1
+        #sub
+        self.point_move_all_clear_sub = rospy.Subscriber('/point_reached',Int8,self.callback_point_move_all_clear,queue_size=1)
+        #pub
+        self.scan_all_clear_pub = rospy.Publisher('/scan_all_clear',Int8, queue_size=1)
+
         # msg init
         self.empty_msg = Empty()
         self.msg = Twist()
@@ -52,7 +59,7 @@ class Bebop:
         self.curr_Alignment = 0
         self.thresh_Alignment_max = 50
         self.thresh_Alignment_min = -50
-
+        self.curr_bebop_takeoff_stat = 0
         #init flag
         self.set_Alignment_flag = 0
         self.error_check_num = 0
@@ -73,6 +80,10 @@ class Bebop:
         self.bebop_pub_land.publish(self.empty_msg)
         print("bebop_is_landing")
 
+    def callback_point_move_all_clear(self,point_move_all_clear_data):
+        self.curr_point_move_all_clear = point_move_all_clear_data.data
+
+
     def callback_bebop_odom(self,bebop_odom_data):
         self.curr_bebop_odom_z = bebop_odom_data.pose.pose.orientation.z
         self.curr_bebop_odom_z = self.curr_bebop_odom_z * 100
@@ -90,7 +101,7 @@ class Bebop:
         self.curr_found_person = found_person_data.data
 
     def callback_bebop_takeoff_stat(self,bebop_takeoff_stat_data):
-        self.curr_bebop_takeoff_stat = bebop_takeoff_stat_data
+        self.curr_bebop_takeoff_stat = bebop_takeoff_stat_data.altitude
 
     def callback_isyn_status(self,isyn_status_data):
         self.curr_isyn_status_msg = isyn_status_data.data
@@ -99,15 +110,16 @@ class Bebop:
         self.curr_isyn_save_image_clear = isyn_save_image_clear.data
 
     def bebop_change_stat(self):
-        # send msg of bebop status
-        # if self.bebop_mode_msg == 1:
-        #     self.curr_bebop_status_msg = 0
 
-        if self.curr_bebop_takeoff_stat.altitude == 0 :
+        #send msg of bebop status
+        if self.bebop_mode_msg == 1:
             self.curr_bebop_status_msg = 0
-            self.bebop_mode_msg = 0
 
-        if self.bebop_mode_msg == 2 and self.curr_bebop_takeoff_stat.altitude > 0 and self.curr_isyn_status_msg == 0:
+        # if self.curr_bebop_takeoff_stat == 0 :
+        #     self.curr_bebop_status_msg = 0
+        #     self.bebop_mode_msg = 0
+
+        if self.bebop_mode_msg == 2 and self.curr_isyn_status_msg == 0 and self.curr_point_move_all_clear == 1:
             self.curr_bebop_status_msg = 1
             self.point_local_scan_clear = 0
             self.msg.angular.x = self.msg.angular.y = self.msg.angular.z = 0
@@ -119,25 +131,20 @@ class Bebop:
         if self.bebop_mode_msg == 2 and self.curr_isyn_status_msg == 2:
             self.curr_bebop_status_msg = 3
 
-        if self.bebop_mode_msg == 2 and self.curr_isyn_status_msg == 3:
-            self.curr_bebop_status_msg = 4
-
-        # if self.bebop_mode_msg == 2 and self.curr_isyn_status_msg == 3:
-        #     self.curr_bebop_status_msg = 5
 
     def set_detect_person_center(self):
         try:
             if self.split_Alignment_data[0] == -1:
                 print('not split Alignment data')
-
             elif self.curr_bebop_status_msg == 3 and self.split_Alignment_data > 0:
-                print("start set center")
                 for i in range(0,len(self.split_Alignment_data),1):
                     while (1):
                         if (self.split_Alignment_data[i] < self.thresh_Alignment_max and self.split_Alignment_data[i] > self.thresh_Alignment_min):
                             self.msg.angular.x = self.msg.angular.y = self.msg.angular.z = 0
                             if self.curr_isyn_save_image_clear == 1:
                                 self.bebop_req_save_image_pub.publish(0)
+                                rospy.sleep(3)
+                                print('clear detect person center')
                                 break
                             if self.curr_isyn_save_image_clear == 0:
                                 self.bebop_req_save_image_pub.publish(1)
@@ -153,7 +160,7 @@ class Bebop:
                         rospy.sleep(0.1)
                 self.point_local_scan_clear = 1
 
-        except AttributeError :
+        except AttributeError:
             self.error_check_num = self.error_check_num + 1
             if self.error_check_num >= 5:
                 print("wait Alignment data")
@@ -165,10 +172,23 @@ class Bebop:
                 self.bebop_req_save_image_pub.publish(0)
             print(e)
 
+
+    def init_location(self):
+        while (self.curr_bebop_odom_z > 0):
+            self.msg.angular.z = self.curr_angular_speed
+            self.bebop_control_pub.publish(self.msg)
+
+        while (self.curr_bebop_odom_z < 0):
+            self.msg.angular.z = self.curr_angular_speed
+            self.bebop_control_pub.publish(self.msg)
+
+        self.msg.angular.x = self.msg.angular.y = self.msg.angular.z = 0
+        self.bebop_control_pub.publish(self.msg)
+
     # thread func
     def bebop_move(self):
         while(1):
-            time.sleep(0.1)
+            time.sleep(0.045)
             #change_bebop_status
             self.bebop_change_stat()
 
@@ -188,13 +208,14 @@ class Bebop:
                             print("start detect person center")
                             self.set_detect_person_center()
                     if self.curr_bebop_odom_z == limit_odom_z and self.point_local_scan_clear == 1:
+                        self.scan_all_clear_pub.publish(1)
+                        self.curr_point_move_all_clear = 0
                         self.bebop_mode_msg = 1
                         break
-                    rospy.sleep(0.1)
+                    rospy.sleep(0.045)
 
                 self.msg.angular.x = self.msg.angular.y = self.msg.angular.z = 0
                 self.bebop_control_pub.publish(self.msg)
-
 
 
 def getKey():
@@ -229,7 +250,7 @@ def key_control():
                 bebop.point_local_scan_clear = 0
             elif key == 'd':
                 print('change bebop detecting mode num 3')
-                bebop.bebop_mode_msg = 3
+                bebop.init_location()
 
             time.sleep(0.1)
         except KeyboardInterrupt as e:

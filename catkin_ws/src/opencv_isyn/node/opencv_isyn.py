@@ -60,7 +60,7 @@ class isyn:
         self.curr_bebop_status_msg = 0
         self.found_person_msg = 0
         self.found_object = 0
-        #init flagf
+        #init flag
         self.scshot_clear_msg = 0
         self.error_check_num = 0
 
@@ -110,6 +110,8 @@ class isyn:
 
     def callback_found_object(self,found_object_num_data):
         self.found_object = found_object_num_data.data
+        # detect_person number
+        self.found_person_msg = self.found_object
 
     def callback_bebop_mode(self,bebop_mode_data):
         self.bebop_mode = bebop_mode_data.data
@@ -123,10 +125,8 @@ class isyn:
     def open_face(self):
         # Resize frame of video to 1/2 size for faster face recognition processing
         small_frame = cv2.resize(self.cv_image, (0, 0), fx=0.5, fy=0.5)
-
         # Convert the image from BGR color (which OpenCV uses) to RGB color (which face_recognition uses)
         rgb_small_frame = small_frame[:, :, ::-1]
-
         # Only process every other frame of video to save time
         if self.process_this_frame:
             # Find all the faces and face encodings in the current frame of video
@@ -180,14 +180,11 @@ class isyn:
         if self.curr_bebop_status_msg == 3 and self.cv_image.any() and self.found_object >= 1:
             self.curr_isyn_status_msg = 3
 
-        # if self.curr_bebop_status_msg == 5 and self.cv_image.any() and self.found_object >= 1 and self.scshot_clear_msg == 0:
-        #     self.curr_isyn_status_msg = 4
-
 
     #thread func
     def person_detect(self):
         while(1):
-            time.sleep(0.1)
+            time.sleep(0.045)
             #change_isyn_status
             self.isyn_change_stat()
 
@@ -196,7 +193,6 @@ class isyn:
             self.found_person_pub.publish(self.found_person_msg)
 
             # draw center_point
-            self.cv_image = self.cv_image
             self.cv_image = cv2.line(self.cv_image, (self.point_x_center, self.point_y_center),
                                      (self.point_x_center, self.point_y_center), red_color, 5)
 
@@ -224,9 +220,6 @@ class isyn:
                         self.y_max.append(self.sort_found_object[i].ymax)
 
                 if self.found_object != 0:
-                    # detect_person number
-                    self.found_person_msg = self.found_object
-
                     for i in range(0, len(self.x_min), 1):
                         # set person detect bounding box middle
                         self.mid_x = (self.x_min[i] + self.x_max[i]) / 2
@@ -241,7 +234,6 @@ class isyn:
                                                  red_color, 1)
 
                         self.detect_object_mid.append(self.mid_x - self.point_x_center)
-
 
                     #publish person_to_drone_Alignment
                     if self.detect_object_mid :
@@ -269,16 +261,17 @@ class isyn:
                         self.person_to_drone_Alignment_pub.publish(self.detect_object_mid)
                         self.detect_object_mid = []
 
-                # start face_recognition
-                self.open_face()
+
 
             except AttributeError as e:
                 self.error_check_num = self.error_check_num + 1
-                if self.error_check_num >= 25:
+                if self.error_check_num >= 50:
                     print("wait darknet data or check your bebop mode")
                     print(e)
                     self.error_check_num = 0
 
+            # start face_recognition
+            self.open_face()
             # show display
             cv2.imshow("opencv", self.cv_image), cv2.waitKey(1)
 
